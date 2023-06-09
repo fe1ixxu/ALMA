@@ -14,6 +14,8 @@ maxtoken=${7:-512}
 # falcon-7b: tiiuae/falcon-7b
 # BLOOM-7b: bigscience/bloom-7b1
 # mpt-7b: mosaicml/mpt-7b
+# falcon-7b-instruct: tiiuae/falcon-7b-instruct
+# mpt-7b-instruct: mosaicml/mpt-7b-instruct
 
 source activate llmmt
 
