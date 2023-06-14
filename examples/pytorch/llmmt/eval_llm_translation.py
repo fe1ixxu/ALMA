@@ -57,7 +57,7 @@ def clean_outputstring(output, key_word):
 def generate(args):
     # Load model and tokenizer, note that the fast tokenizer currently does not work correctly
     if "llama" in args.model_name:
-        tokenizer = LlamaTokenizer.from_pretrained(args.model_name, use_fast=False)
+        tokenizer = LlamaTokenizer.from_pretrained(args.model_name, use_fast=False, padding_side='left')
     elif "mpt" in args.model_name:
         ## GPTNeoXTokenizer only supports for AutoTokenizerFast
         tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True, padding_side='left')
@@ -65,11 +65,8 @@ def generate(args):
         tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=False, padding_side='left')
 
     if "llama" in args.model_name or "falcon" in args.model_name or "mpt" in args.model_name:
-        is_padding = False # llama and falcon does not have padding_id
-        args.batch_size = 1 # and force batch size to be 1
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-    else:
-        is_padding = True
+        tokenizer.pad_token = tokenizer.eos_token
+
     # print(tokenizerd("test", return_tensors="pt", padding=is_padding))
     model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.float16, trust_remote_code=True).cuda()
 
@@ -87,7 +84,7 @@ def generate(args):
     # Generate
     cleaned_outputs = []
     for eval_batch in tqdm(eval_data):
-        input_ids = tokenizer(eval_batch, return_tensors="pt", padding=is_padding).input_ids.cuda()
+        input_ids = tokenizer(eval_batch, return_tensors="pt", padding=True).input_ids.cuda()
         max_length = min(int(input_ids.shape[-1] * 2.5), args.max_token_in_seq)
         # truncate the input length
         input_ids = input_ids[:, :int(args.max_token_in_seq/2)]

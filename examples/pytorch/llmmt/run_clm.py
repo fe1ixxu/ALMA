@@ -22,6 +22,7 @@ https://huggingface.co/models?filter=text-generation
 # You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
 
 import logging
+import copy
 import math
 import os
 import sys
@@ -54,6 +55,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, TaskType
+from collections import defaultdict
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -155,6 +157,14 @@ class ModelArguments:
             )
         },
     )
+    load_in_8bit: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Whether load model with int8"
+            )
+        },
+    )
 
     def __post_init__(self):
         if self.config_overrides is not None and (self.config_name is not None or self.model_name_or_path is not None):
@@ -168,18 +178,14 @@ class DataTrainingArguments:
     """
     Arguments pertaining to what data we are going to input our model for training and eval.
     """
-
+    language_pairs: str = field(default="", metadata={"help": "training language pairs"})
     dataset_name: Optional[str] = field(
         default=None, metadata={"help": "The name of the dataset to use (via the datasets library)."}
     )
     dataset_config_name: Optional[str] = field(
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )
-    train_file: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
-    validation_file: Optional[str] = field(
-        default=None,
-        metadata={"help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."},
-    )
+    data_path: Optional[str] = field(default=None, metadata={"help": "The input training data file (a text file)."})
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
@@ -225,46 +231,32 @@ class DataTrainingArguments:
     keep_linebreaks: bool = field(
         default=True, metadata={"help": "Whether to keep line breaks when using TXT files or not."}
     )
-    source_lang: str = field(default=None, metadata={"help": "Source language id for translation."})
-    target_lang: str = field(default=None, metadata={"help": "Target language id for translation."})
     ignore_pad_token_for_loss: bool = field(
         default=True,
         metadata={
             "help": "Whether to ignore the tokens corresponding to padded labels in the loss computation or not."
         },
     )
-    max_source_length: Optional[int] = field(
-        default=1024,
+    ignore_prompt_token_for_loss: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to ignore the prompt tokens in the loss computation or not."
+        },
+    )
+    max_total_length: Optional[int] = field(
+        default=512,
         metadata={
             "help": (
-                "The maximum total input sequence length after tokenization. Sequences longer "
+                "The maximum total sequence length text after tokenization. Sequences longer "
                 "than this will be truncated, sequences shorter will be padded."
             )
         },
     )
-    max_target_length: Optional[int] = field(
-        default=128,
-        metadata={
-            "help": (
-                "The maximum total sequence length for target text after tokenization. Sequences longer "
-                "than this will be truncated, sequences shorter will be padded."
-            )
-        },
-    )
+    suffix: Optional[str] = field(default="", metadata={"help": "The suffix of the training file."})
 
     def __post_init__(self):
         if self.streaming:
             require_version("datasets>=2.0.0", "The streaming feature requires `datasets>=2.0.0`")
-
-        if self.dataset_name is None and self.train_file is None and self.validation_file is None:
-            raise ValueError("Need either a dataset name or a training/validation file.")
-        else:
-            if self.train_file is not None:
-                extension = self.train_file.split(".")[-1]
-                assert extension in ["csv", "json", "txt"], "`train_file` should be a csv, a json or a txt file."
-            if self.validation_file is not None:
-                extension = self.validation_file.split(".")[-1]
-                assert extension in ["csv", "json", "txt"], "`validation_file` should be a csv, a json or a txt file."
 
 def print_trainable_parameters(model):
     """
@@ -347,6 +339,8 @@ def main():
     #
     # In distributed training, the load_dataset function guarantee that only one local process can concurrently
     # download the dataset.
+    # Hash language pairs
+    pairs = set(data_args.language_pairs.split(","))
     if data_args.dataset_name is not None:
         # Downloading and loading a dataset from the hub.
         raw_datasets = load_dataset(
@@ -357,22 +351,24 @@ def main():
             streaming=data_args.streaming,
         )
     else:
-        data_files = {}
-        if data_args.train_file is not None:
-            data_files["train"] = data_args.train_file
-            extension = data_args.train_file.split(".")[-1]
-        if data_args.validation_file is not None:
-            data_files["validation"] = data_args.validation_file
-            extension = data_args.validation_file.split(".")[-1]
-        if data_args.test_file is not None:
-            data_files["test"] = data_args.test_file
-            extension = data_args.test_file.split(".")[-1]
+        data_files = defaultdict(list)
+        for pair in pairs:
+            src_lang = pair.split("-")[0]
+            tgt_lang = pair.split("-")[1]
+            train_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"train.{src_lang}-{tgt_lang}-{data_args.suffix}.json")
+            valid_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"valid.{src_lang}-{tgt_lang}.json")
+            if os.path.isfile(train_file): 
+                data_files["train"].append(train_file)
+            if os.path.isfile(valid_file):
+                data_files["validation"].append(valid_file)
+
         raw_datasets = load_dataset(
-            extension,
+            "json",
             data_files=data_files,
             cache_dir=model_args.cache_dir,
             use_auth_token=True if model_args.use_auth_token else None,
         )
+    
 
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -387,7 +383,10 @@ def main():
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
+        "trust_remote_code": True,
     }
+    # if "llama" in model_args.model_name_or_path:
+    #     config_kwargs["pad_token_id"] = 0
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
     elif model_args.model_name_or_path:
@@ -406,16 +405,24 @@ def main():
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
+    # if "llama" in model_args.model_name_or_path:
+    #     tokenizer_kwargs["pad_token_id"] = 0
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
     elif model_args.model_name_or_path:
-        tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
+        if "llama" in model_args.model_name_or_path:
+            tokenizer = LlamaTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
     else:
         raise ValueError(
             "You are instantiating a new tokenizer from scratch. This is not supported by this script."
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
-
+    if tokenizer.pad_token == None:
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    ## Model Loading
     if model_args.model_name_or_path:
         torch_dtype = (
             model_args.torch_dtype
@@ -431,6 +438,8 @@ def main():
             use_auth_token=True if model_args.use_auth_token else None,
             torch_dtype=torch_dtype,
             low_cpu_mem_usage=model_args.low_cpu_mem_usage,
+            trust_remote_code=True,
+            # load_in_8bit=model_args.load_in_8bit,
         )
     else:
         model = AutoModelForCausalLM.from_config(config)
@@ -452,7 +461,7 @@ def main():
         task_type="CAUSAL_LM"
     )
     model = get_peft_model(model, config)
-    # print(model)
+    # model = model.half()
     # print_trainable_parameters(model)
     # exit(0)
     # Preprocessing the datasets.
@@ -469,50 +478,44 @@ def main():
 
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
-
-    source_lang = data_args.source_lang.split("_")[0]
-    target_lang = data_args.target_lang.split("_")[0]
-    src_fullname = LANG_TABLE[source_lang]
-    tgt_fullname = LANG_TABLE[target_lang]
-    prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
-    suffix = f"\n{tgt_fullname}: "
     padding = "max_length"
+
+    def get_prompt(source_lang, target_lang, ex):
+        src_fullname = LANG_TABLE[source_lang]
+        tgt_fullname = LANG_TABLE[target_lang]
+        prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
+        suffix = f"\n{tgt_fullname}: "
+        prompt = prefix + ex[source_lang] + suffix
+        return prompt
+    
     def tokenize_function(examples):
         inputs = []
-        targets = []
+        prompts = []
         for ex in examples["translation"]:
-            prompt = prefix + ex[source_lang] + suffix
-            inputs += [prompt]
-            targets += [prompt + ex[target_lang]]
-        model_inputs = tokenizer(inputs, max_length=512, padding=padding, truncation=True)
-        labels = tokenizer(text_target=targets, max_length=512, padding=padding, truncation=True)
+            source_lang, target_lang = list(ex.keys())
+            if f"{source_lang}-{target_lang}" in pairs:
+                prompt = get_prompt(source_lang, target_lang, ex)
+                prompts.append(prompt)
+                inputs.append(prompt + ex[target_lang])
+            if f"{target_lang}-{source_lang}" in pairs:
+                prompt = get_prompt(target_lang, source_lang, ex)
+                prompts.append(prompt)
+                inputs.append(prompt + ex[source_lang])
+        model_inputs = tokenizer(inputs, max_length=data_args.max_total_length, padding=padding, truncation=True)
+        labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
         if padding == "max_length" and data_args.ignore_pad_token_for_loss:
             labels["input_ids"] = [
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
             ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_total_length).input_ids
+                    labels["input_ids"][idx][:len(prompt)] = [-100] * len(prompt) 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    # def tokenize_function(examples):
-    #     inputs = [ex[source_lang] for ex in examples["translation"]]
-    #     targets = [ex[target_lang] for ex in examples["translation"]]
-    #     inputs = [prefix + inp for inp in inputs]
-    #     model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
-
-    #     # Tokenize targets with the `text_target` keyword argument
-    #     labels = tokenizer(text_target=targets, max_length=data_args.max_target_length, padding=padding, truncation=True)
-
-    #     # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
-    #     # padding in the loss.
-    #     if padding == "max_length" and data_args.ignore_pad_token_for_loss:
-    #         labels["input_ids"] = [
-    #             [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
-    #         ]
-
-    #     model_inputs["labels"] = labels["input_ids"]
-    #     return model_inputs
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
@@ -529,17 +532,23 @@ def main():
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on train dataset",
             )
-        print(train_dataset[1])
-        exit(0)
 
     if training_args.do_eval:
-        if "validation" not in tokenized_datasets:
+        if "validation" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = lm_datasets["validation"]
+        eval_dataset = raw_datasets["validation"]
         if data_args.max_eval_samples is not None:
             max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
             eval_dataset = eval_dataset.select(range(max_eval_samples))
-
+        with training_args.main_process_first(desc="validation dataset map pre-processing"):
+            eval_dataset = eval_dataset.map(
+                tokenize_function,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer valid dataset",
+            )
         def preprocess_logits_for_metrics(logits, labels):
             if isinstance(logits, tuple):
                 # Depending on the model and config, logits may contain extra tensors,
@@ -632,3 +641,4 @@ def _mp_fn(index):
 
 if __name__ == "__main__":
     main()
+

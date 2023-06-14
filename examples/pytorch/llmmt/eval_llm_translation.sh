@@ -17,7 +17,7 @@ maxtoken=${7:-512}
 # falcon-7b-instruct: tiiuae/falcon-7b-instruct
 # mpt-7b-instruct: mosaicml/mpt-7b-instruct
 
-source activate llmmt
+source activate llmmt2
 
 echo "model ${model} src ${src} tgt ${tgt} beam ${beam} bz ${bz} gpu ${gpu}"
 eval_path=/home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}
@@ -36,10 +36,21 @@ python eval_llm_translation.py \
 --beam_size ${beam} \
 --batch_size ${bz} \
 --seed 42 \
---max_token_in_seq ${maxtoken} \
+--max_token_in_seq ${maxtoken} 
 
+exit
+TOK="13a"
+if [ ${tgt} == "zh" ]; then
+    TOK="zh"
+elif [ ${tgt} == "ja" ]; then
+    TOK="ja-mecab"
+fi
 
-SACREBLEU_FORMAT=text sacrebleu -tok flores200 -w 2 ${output_path} < ${gold_path} > ${output_path}.bleu
+# if [ ${src} == "uk" ]; then
+#     gold_path="test.uk-en.en"
+# fi
+mv ${output_path}.bleu ${output_path}.bleu-flores200
+SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${gold_path} > ${output_path}.bleu
 comet-score -s ${eval_path} -t ${output_path} -r ${gold_path} > ${output_path}.comet
 
 cat ${output_path}.bleu

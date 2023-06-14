@@ -1,15 +1,20 @@
-python run_clm.py \
-    --model_name_or_path facebook/opt-6.7b \
-    --dataset_name wmt16 \
-    --dataset_config_name ro-en \
-    --per_device_train_batch_size 8 \
-    --per_device_eval_batch_size 8 \
+accelerate launch run_clm.py \
+    --model_name_or_path decapoda-research/llama-7b-hf \
+    --language_pairs de-en,en-de \
+    --suffix 10000 \
+    --data_path /home/aiscuser/filtered_wmt22/ \
+    --per_device_train_batch_size 2 \
+    --per_device_eval_batch_size 2 \
     --do_train \
     --do_eval \
-    --source_lang en \
-    --target_lang ro \
     --overwrite_cache \
-    --output_dir ./tmp/test-clm
+    --output_dir ./tmp/test-clm2 \
+    --ignore_prompt_token_for_loss \
+    --fp16 \
+    --fp16_full_eval \
+    --fp16_backend auto \
+    --torch_dtype float16 \
+    --num_train_epochs 10 \
 
 # python ./run_translation.py \
 #     --model_name_or_path Helsinki-NLP/opus-mt-en-ro \
