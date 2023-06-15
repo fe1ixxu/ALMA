@@ -38,7 +38,6 @@ python eval_llm_translation.py \
 --seed 42 \
 --max_token_in_seq ${maxtoken} 
 
-exit
 TOK="13a"
 if [ ${tgt} == "zh" ]; then
     TOK="zh"

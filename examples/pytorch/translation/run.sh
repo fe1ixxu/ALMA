@@ -1,7 +1,6 @@
 python ./run_translation.py \
     --model_name_or_path Helsinki-NLP/opus-mt-en-ro \
-    --do_train \
-    --do_predict \
+    --do_eval \
     --source_lang en \
     --target_lang ro \
     --dataset_name wmt16 \
@@ -11,7 +10,8 @@ python ./run_translation.py \
     --per_device_train_batch_size=4 \
     --per_device_eval_batch_size=4 \
     --overwrite_output_dir \
-    --predict_with_generate
+    --predict_with_generate \
+    --max_eval_samples 10 
 
 # python run_translation_no_trainer.py \
 #     --model_name_or_path Helsinki-NLP/opus-mt-en-ro \

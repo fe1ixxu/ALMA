@@ -29,6 +29,7 @@ import sys
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Optional
+import numpy as np
 
 import datasets
 import evaluate
@@ -44,7 +45,9 @@ from transformers import (
     AutoTokenizer,
     HfArgumentParser,
     Trainer,
+    Seq2SeqTrainer,
     TrainingArguments,
+    Seq2SeqTrainingArguments,
     default_data_collator,
     is_torch_tpu_available,
     set_seed,
@@ -243,12 +246,20 @@ class DataTrainingArguments:
             "help": "Whether to ignore the prompt tokens in the loss computation or not."
         },
     )
-    max_total_length: Optional[int] = field(
-        default=512,
+    max_source_length: Optional[int] = field(
+        default=256,
         metadata={
             "help": (
                 "The maximum total sequence length text after tokenization. Sequences longer "
                 "than this will be truncated, sequences shorter will be padded."
+            )
+        },
+    )
+    max_new_tokens: Optional[int] = field(
+        default=256,
+        metadata={
+            "help": (
+                "The maximum new tokens to generate except the prompt."
             )
         },
     )
@@ -277,7 +288,7 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -385,8 +396,7 @@ def main():
         "use_auth_token": True if model_args.use_auth_token else None,
         "trust_remote_code": True,
     }
-    # if "llama" in model_args.model_name_or_path:
-    #     config_kwargs["pad_token_id"] = 0
+
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
     elif model_args.model_name_or_path:
@@ -405,23 +415,31 @@ def main():
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
     }
-    # if "llama" in model_args.model_name_or_path:
-    #     tokenizer_kwargs["pad_token_id"] = 0
+        
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
     elif model_args.model_name_or_path:
         if "llama" in model_args.model_name_or_path:
-            tokenizer = LlamaTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
+            tokenizer = LlamaTokenizer.from_pretrained(
+                model_args.model_name_or_path, 
+                **tokenizer_kwargs, 
+                padding_side='left', 
+                add_eos_token=False
+            )
         else:
-            tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_args.model_name_or_path,
+                **tokenizer_kwargs,
+                padding_side='left', 
+                add_eos_token=False
+            )
     else:
         raise ValueError(
             "You are instantiating a new tokenizer from scratch. This is not supported by this script."
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
-    if tokenizer.pad_token == None:
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
+
+
     ## Model Loading
     if model_args.model_name_or_path:
         torch_dtype = (
@@ -446,21 +464,32 @@ def main():
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
+
+    if tokenizer.pad_token == None:
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    if "llama" in model_args.model_name_or_path:
+        tokenizer.pad_token_id = 0
+        tokenizer.bos_token_id = 1
+        tokenizer.eos_token_id = 2
+        model.config.pad_token_id = 0
+        model.config.bos_token_id = 1
+        model.config.eos_token_id = 2
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
     embedding_size = model.get_input_embeddings().weight.shape[0]
     if len(tokenizer) > embedding_size:
         model.resize_token_embeddings(len(tokenizer))
     ## PEFT: LORA:
-    config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        target_modules=["q_proj", "v_proj"],
-        lora_dropout=0.05,
-        bias="none",
-        task_type="CAUSAL_LM"
-    )
-    model = get_peft_model(model, config)
+    # config = LoraConfig(
+    #     r=16,
+    #     lora_alpha=32,
+    #     target_modules=["q_proj", "v_proj"],
+    #     lora_dropout=0.05,
+    #     bias="none",
+    #     task_type="CAUSAL_LM"
+    # )
+    # model = get_peft_model(model, config)
     # model = model.half()
     # print_trainable_parameters(model)
     # exit(0)
@@ -480,6 +509,12 @@ def main():
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
     padding = "max_length"
 
+    def get_first_non_pad_index(input_tensor):
+        input_tensor = torch.tensor(input_tensor)
+        assert input_tensor.ndim == 1
+        first_non_pad_index = (input_tensor != -100).nonzero(as_tuple=True)[0][0]
+        return first_non_pad_index.item()
+
     def get_prompt(source_lang, target_lang, ex):
         src_fullname = LANG_TABLE[source_lang]
         tgt_fullname = LANG_TABLE[target_lang]
@@ -488,7 +523,18 @@ def main():
         prompt = prefix + ex[source_lang] + suffix
         return prompt
     
-    def tokenize_function(examples):
+    def check_add_eos(tokenized_inputs):
+        if tokenized_inputs.input_ids[0][-1] != tokenizer.eos_token_id:
+            for idx in range(len(tokenized_inputs.input_ids)):
+                tokenized_inputs.input_ids[idx].append(tokenizer.eos_token_id)
+                tokenized_inputs.attention_mask[idx].append(1)
+    # def check_remove_eos(tokenized_inputs):
+    #     if tokenized_inputs.input_ids[0][-1] == tokenizer.eos_token_id:
+    #         for idx in range(len(tokenized_inputs.input_ids)):
+    #             tokenized_inputs.input_ids[idx].pop(-1)
+    #             tokenized_inputs.attention_mask[idx].pop(-1)
+
+    def tokenize_function_train(examples):
         inputs = []
         prompts = []
         for ex in examples["translation"]:
@@ -501,7 +547,8 @@ def main():
                 prompt = get_prompt(target_lang, source_lang, ex)
                 prompts.append(prompt)
                 inputs.append(prompt + ex[source_lang])
-        model_inputs = tokenizer(inputs, max_length=data_args.max_total_length, padding=padding, truncation=True)
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos(model_inputs)
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
@@ -511,8 +558,40 @@ def main():
             ]
             if data_args.ignore_prompt_token_for_loss:
                 for idx, prompt in enumerate(prompts):
-                    prompt = tokenizer(prompt, max_length=data_args.max_total_length).input_ids
-                    labels["input_ids"][idx][:len(prompt)] = [-100] * len(prompt) 
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
+                    first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
+                    labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    def tokenize_function_eval(examples):
+        prompts = []
+        targets = []
+        for ex in examples["translation"]:
+            source_lang, target_lang = list(ex.keys())
+            if f"{source_lang}-{target_lang}" in pairs:
+                prompt = get_prompt(source_lang, target_lang, ex)
+                prompts.append(prompt)
+                targets.append(prompt + ex[target_lang])
+            if f"{target_lang}-{source_lang}" in pairs:
+                prompt = get_prompt(target_lang, source_lang, ex)
+                prompts.append(prompt)
+                targets.append(prompt + ex[source_lang])
+        model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
+        # check_remove_eos(model_inputs)
+        labels = tokenizer(targets, max_length=data_args.max_source_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos(labels)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids # remove the bos
+                    first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
+                    labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
@@ -525,7 +604,7 @@ def main():
             train_dataset = train_dataset.select(range(max_train_samples))
         with training_args.main_process_first(desc="train dataset map pre-processing"):
             train_dataset = train_dataset.map(
-                tokenize_function,
+                tokenize_function_train,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
@@ -542,32 +621,48 @@ def main():
             eval_dataset = eval_dataset.select(range(max_eval_samples))
         with training_args.main_process_first(desc="validation dataset map pre-processing"):
             eval_dataset = eval_dataset.map(
-                tokenize_function,
+                tokenize_function_eval,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer valid dataset",
             )
-        def preprocess_logits_for_metrics(logits, labels):
-            if isinstance(logits, tuple):
-                # Depending on the model and config, logits may contain extra tensors,
-                # like past_key_values, but logits always come first
-                logits = logits[0]
-            return logits.argmax(dim=-1)
 
-        metric = evaluate.load("accuracy")
+    metric = evaluate.load("sacrebleu")
+    def postprocess_text(preds, labels):
+        preds = [pred.strip() for pred in preds]
+        labels = [[label.strip()] for label in labels]
 
-        def compute_metrics(eval_preds):
-            preds, labels = eval_preds
-            # preds have the same shape as the labels, after the argmax(-1) has been calculated
-            # by preprocess_logits_for_metrics but we need to shift the labels
-            labels = labels[:, 1:].reshape(-1)
-            preds = preds[:, :-1].reshape(-1)
-            return metric.compute(predictions=preds, references=labels)
+        return preds, labels
 
+    def compute_metrics(eval_preds):
+        preds, labels = eval_preds
+        if isinstance(preds, tuple):
+            preds = preds[0]
+        # Replace -100s used for padding as we can't decode them
+        preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
+        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        # Some simple post-processing
+        decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
+        print("-----------------------")
+        print(decoded_preds[0])
+        print("-----------------------")
+        print(decoded_labels[0])
+        exit(0)
+        result = metric.compute(predictions=decoded_preds, references=decoded_labels)
+        result = {"bleu": result["score"]}
+
+        prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
+        result["gen_len"] = np.mean(prediction_lens)
+        result = {k: round(v, 4) for k, v in result.items()}
+        return result
+        
     # Initialize our Trainer
-    trainer = Trainer(
+    trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -576,9 +671,6 @@ def main():
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
         compute_metrics=compute_metrics if training_args.do_eval and not is_torch_tpu_available() else None,
-        preprocess_logits_for_metrics=preprocess_logits_for_metrics
-        if training_args.do_eval and not is_torch_tpu_available()
-        else None,
     )
 
     # Training
@@ -605,16 +697,10 @@ def main():
     # Evaluation
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-
-        metrics = trainer.evaluate()
-
+        results = {}
+        metrics = trainer.evaluate(max_new_tokens=data_args.max_new_tokens, num_beams=5, metric_key_prefix="eval")
         max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
         metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-        try:
-            perplexity = math.exp(metrics["eval_loss"])
-        except OverflowError:
-            perplexity = float("inf")
-        metrics["perplexity"] = perplexity
 
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)

@@ -66,6 +66,7 @@ def generate(args):
 
     if "llama" in args.model_name or "falcon" in args.model_name or "mpt" in args.model_name:
         tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
 
     # print(tokenizerd("test", return_tensors="pt", padding=is_padding))
     model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.float16, trust_remote_code=True).cuda()
@@ -75,7 +76,7 @@ def generate(args):
 
     # prompt template for zero-shot translation
     prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
-    suffix = f"\n{tgt_fullname}:"
+    suffix = f"\n{tgt_fullname}: "
     logging.info(f"The prompt we use is {prefix + suffix}")
 
     # Load eval data
@@ -87,7 +88,7 @@ def generate(args):
         input_ids = tokenizer(eval_batch, return_tensors="pt", padding=True).input_ids.cuda()
         max_length = min(int(input_ids.shape[-1] * 2.5), args.max_token_in_seq)
         # truncate the input length
-        input_ids = input_ids[:, :int(args.max_token_in_seq/2)]
+        # input_ids = input_ids[:, :int(args.max_token_in_seq/2)]
         generated_ids = model.generate(input_ids, num_beams=args.beam_size, length_penalty=1, max_length=max_length, do_sample=True, top_k=50)
         outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         for out in outputs:

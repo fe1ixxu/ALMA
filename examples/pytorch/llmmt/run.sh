@@ -1,21 +1,30 @@
-accelerate launch run_clm.py \
-    --model_name_or_path decapoda-research/llama-7b-hf \
+python run_clm.py \
+    --model_name_or_path facebook/opt-125m \
     --language_pairs de-en,en-de \
     --suffix 10000 \
     --data_path /home/aiscuser/filtered_wmt22/ \
-    --per_device_train_batch_size 2 \
-    --per_device_eval_batch_size 2 \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
     --do_train \
     --do_eval \
+    --logging_steps 20 \
     --overwrite_cache \
-    --output_dir ./tmp/test-clm2 \
+    --overwrite_output_dir \
+    --output_dir ./tmp/test-clm \
     --ignore_prompt_token_for_loss \
-    --fp16 \
-    --fp16_full_eval \
-    --fp16_backend auto \
-    --torch_dtype float16 \
-    --num_train_epochs 10 \
+    --num_train_epochs 1 \
+    --max_eval_samples 10 \
+    --predict_with_generate \
+    --max_new_tokens 64 \
+    --max_source_length 128
 
+
+    #     --fp16 \
+    # --fp16_full_eval \
+    # --fp16_backend auto \
+    # --torch_dtype float16 \
+
+# decapoda-research/llama-7b-hf
 # python ./run_translation.py \
 #     --model_name_or_path Helsinki-NLP/opus-mt-en-ro \
 #     --do_train \
