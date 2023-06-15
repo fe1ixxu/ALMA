@@ -207,6 +207,15 @@ class DataTrainingArguments:
             )
         },
     )
+    max_test_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "For debugging purposes, truncate the number of test examples to this "
+                "value if set."
+            )
+        },
+    )
     streaming: bool = field(default=False, metadata={"help": "Enable streaming mode"})
     block_size: Optional[int] = field(
         default=None,
@@ -263,6 +272,9 @@ class DataTrainingArguments:
             )
         },
     )
+    # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
+    # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})
+
     suffix: Optional[str] = field(default="", metadata={"help": "The suffix of the training file."})
 
     def __post_init__(self):
@@ -327,7 +339,7 @@ def main():
 
     # Detecting last checkpoint.
     last_checkpoint = None
-    if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
+    if os.path.isdir(training_args.output_dir) and (training_args.do_train or training_args.do_predict) and not training_args.overwrite_output_dir:
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
         if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
             raise ValueError(
@@ -368,10 +380,13 @@ def main():
             tgt_lang = pair.split("-")[1]
             train_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"train.{src_lang}-{tgt_lang}-{data_args.suffix}.json")
             valid_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"valid.{src_lang}-{tgt_lang}.json")
-            if os.path.isfile(train_file): 
+            test_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"test.{src_lang}-{tgt_lang}.json")
+            if training_args.do_train and os.path.isfile(train_file): 
                 data_files["train"].append(train_file)
-            if os.path.isfile(valid_file):
+            if training_args.do_eval and os.path.isfile(valid_file):
                 data_files["validation"].append(valid_file)
+            if training_args.do_predict and os.path.isfile(test_file):
+                data_files["test"].append(test_file)
 
         raw_datasets = load_dataset(
             "json",
@@ -395,6 +410,7 @@ def main():
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
         "trust_remote_code": True,
+        "max_length": data_args.max_source_length + data_args.max_new_tokens
     }
 
     if model_args.config_name:
@@ -448,7 +464,7 @@ def main():
             else getattr(torch, model_args.torch_dtype)
         )
         model = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path,
+            model_args.model_name_or_path if last_checkpoint is None else last_checkpoint,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
             cache_dir=model_args.cache_dir,
@@ -459,6 +475,7 @@ def main():
             trust_remote_code=True,
             # load_in_8bit=model_args.load_in_8bit,
         )
+        model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
     else:
         model = AutoModelForCausalLM.from_config(config)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
@@ -547,7 +564,7 @@ def main():
                 prompt = get_prompt(target_lang, source_lang, ex)
                 prompts.append(prompt)
                 inputs.append(prompt + ex[source_lang])
-        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        model_inputs = tokenizer(inputs, max_length=model.config.max_length - 1, padding=padding, truncation=True, add_special_tokens=True)
         check_add_eos(model_inputs)
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
@@ -564,7 +581,7 @@ def main():
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    def tokenize_function_eval(examples):
+    def tokenize_function_test(examples):
         prompts = []
         targets = []
         for ex in examples["translation"]:
@@ -579,7 +596,7 @@ def main():
                 targets.append(prompt + ex[source_lang])
         model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
         # check_remove_eos(model_inputs)
-        labels = tokenizer(targets, max_length=data_args.max_source_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        labels = tokenizer(targets, max_length=model.config.max_length - 1, padding=padding, truncation=True, add_special_tokens=True)
         check_add_eos(labels)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
@@ -621,7 +638,7 @@ def main():
             eval_dataset = eval_dataset.select(range(max_eval_samples))
         with training_args.main_process_first(desc="validation dataset map pre-processing"):
             eval_dataset = eval_dataset.map(
-                tokenize_function_eval,
+                tokenize_function_train,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
                 remove_columns=column_names,
@@ -629,7 +646,46 @@ def main():
                 desc="Running tokenizer valid dataset",
             )
 
+    if training_args.do_predict:
+        if "test" not in raw_datasets:
+            raise ValueError("--do_predict requires a test dataset")
+        test_dataset = raw_datasets["test"]
+        if data_args.max_test_samples is not None:
+            max_test_samples = min(len(test_dataset), data_args.max_test_samples)
+            test_dataset = test_dataset.select(range(max_test_samples))
+        with training_args.main_process_first(desc="test dataset map pre-processing"):
+            test_dataset = test_dataset.map(
+                tokenize_function_test,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=column_names,
+                load_from_cache_file=not data_args.overwrite_cache,
+                desc="Running tokenizer test dataset",
+            )
     metric = evaluate.load("sacrebleu")
+
+    ## MTSEQ2SEQ
+    def clean_outputstring(output, key_word):
+        try:
+            out = output.split(key_word)[1].split("\n")
+            if out[0].strip() != "":
+                return out[0].strip()
+            elif out[1].strip() != "":
+                ## If there is an EOL directly after the suffix, ignore it
+                logger.info(f"Detect empty output, we ignore it and move to next EOL: {out[1].strip()}")
+                return out[1].strip()
+            else:
+                logger.info(f"Detect empty output AGAIN, we ignore it and move to next EOL: {out[2].strip()}")
+                return out[2].strip()
+        except:
+            logger.info("Can not recover the translation by moving to the next EOL.. Trying move to the next suffix")
+            
+        try:
+            return output.split(key_word)[2].split("\n")[0].strip()
+        except:
+            logger.info("Can not solve the edge case, recover the translation to empty string!")
+            return ""
+    
     def postprocess_text(preds, labels):
         preds = [pred.strip() for pred in preds]
         labels = [[label.strip()] for label in labels]
@@ -648,11 +704,16 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-        print("-----------------------")
-        print(decoded_preds[0])
-        print("-----------------------")
-        print(decoded_labels[0])
-        exit(0)
+        # for idx in range(10):
+        #     print("------------------------")
+        #     print(decoded_preds[idx])
+        #     print(decoded_labels[idx])
+            
+        with open(os.path.join(training_args.output_dir, "de-en.txt"), "w", encoding="utf-8") as f:
+            suffix = f"\nEnglish: "
+            for pred in decoded_preds:
+                pred = clean_outputstring(pred, suffix)
+                f.writelines([pred, "\n"])
         result = metric.compute(predictions=decoded_preds, references=decoded_labels)
         result = {"bleu": result["score"]}
 
@@ -660,7 +721,8 @@ def main():
         result["gen_len"] = np.mean(prediction_lens)
         result = {k: round(v, 4) for k, v in result.items()}
         return result
-        
+
+    
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
         model=model,
@@ -694,31 +756,17 @@ def main():
         trainer.save_metrics("train", metrics)
         trainer.save_state()
 
-    # Evaluation
-    if training_args.do_eval:
-        logger.info("*** Evaluate ***")
+    # Prediction
+    if training_args.do_predict:
+        logger.info("*** Prediction ***")
         results = {}
-        metrics = trainer.evaluate(max_new_tokens=data_args.max_new_tokens, num_beams=5, metric_key_prefix="eval")
-        max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
-        metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
-
-    kwargs = {"finetuned_from": model_args.model_name_or_path, "tasks": "text-generation"}
-    if data_args.dataset_name is not None:
-        kwargs["dataset_tags"] = data_args.dataset_name
-        if data_args.dataset_config_name is not None:
-            kwargs["dataset_args"] = data_args.dataset_config_name
-            kwargs["dataset"] = f"{data_args.dataset_name} {data_args.dataset_config_name}"
-        else:
-            kwargs["dataset"] = data_args.dataset_name
-
-    if training_args.push_to_hub:
-        trainer.push_to_hub(**kwargs)
-    else:
-        trainer.create_model_card(**kwargs)
-
+        trainer.args.prediction_loss_only = False
+        metrics = trainer.predict(
+            test_dataset=test_dataset, 
+            max_new_tokens=data_args.max_new_tokens, 
+            num_beams=5, 
+            metric_key_prefix="test"
+        )
 
 def _mp_fn(index):
     # For xla_spawn (TPUs)
