@@ -58,6 +58,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, TaskType
+from peft import PeftModel, PeftConfig
 from collections import defaultdict
 
 
@@ -165,6 +166,14 @@ class ModelArguments:
         metadata={
             "help": (
                 "Whether load model with int8"
+            )
+        },
+    )
+    use_peft: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Whether use PEFT (parameter efficient fine-tuning)"
             )
         },
     )
@@ -339,18 +348,8 @@ def main():
 
     # Detecting last checkpoint.
     last_checkpoint = None
-    if os.path.isdir(training_args.output_dir) and (training_args.do_train or training_args.do_predict) and not training_args.overwrite_output_dir:
+    if os.path.isdir(training_args.output_dir) and (training_args.do_train or training_args.do_predict ) and not training_args.overwrite_output_dir:
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
-            raise ValueError(
-                f"Output directory ({training_args.output_dir}) already exists and is not empty. "
-                "Use --overwrite_output_dir to overcome."
-            )
-        elif last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-            logger.info(
-                f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
-                "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
-            )
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
@@ -464,7 +463,7 @@ def main():
             else getattr(torch, model_args.torch_dtype)
         )
         model = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path if last_checkpoint is None else last_checkpoint,
+            model_args.model_name_or_path if last_checkpoint is None or model_args.use_peft else last_checkpoint,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
             cache_dir=model_args.cache_dir,
@@ -498,18 +497,22 @@ def main():
     if len(tokenizer) > embedding_size:
         model.resize_token_embeddings(len(tokenizer))
     ## PEFT: LORA:
-    # config = LoraConfig(
-    #     r=16,
-    #     lora_alpha=32,
-    #     target_modules=["q_proj", "v_proj"],
-    #     lora_dropout=0.05,
-    #     bias="none",
-    #     task_type="CAUSAL_LM"
-    # )
-    # model = get_peft_model(model, config)
-    # model = model.half()
-    # print_trainable_parameters(model)
-    # exit(0)
+    if model_args.use_peft:
+        if last_checkpoint:
+            config = PeftConfig.from_pretrained(last_checkpoint)
+            model = PeftModel.from_pretrained(model, last_checkpoint)
+        else:
+            config = LoraConfig(
+                r=16,
+                lora_alpha=32,
+                target_modules=["q_proj", "v_proj"],
+                lora_dropout=0.05,
+                bias="none",
+                task_type="CAUSAL_LM"
+            )
+            model = get_peft_model(model, config)
+        print_trainable_parameters(model)
+
     # Preprocessing the datasets.
     # First we tokenize all the texts.
     if training_args.do_train:
@@ -704,12 +707,12 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-        # for idx in range(10):
-        #     print("------------------------")
-        #     print(decoded_preds[idx])
-        #     print(decoded_labels[idx])
+        for idx in range(10):
+            print("------------------------")
+            print(decoded_preds[idx])
+            print(decoded_labels[idx])
             
-        with open(os.path.join(training_args.output_dir, "de-en.txt"), "w", encoding="utf-8") as f:
+        with open(os.path.join(training_args.output_dir, "de-en-100.3.txt"), "w", encoding="utf-8") as f:
             suffix = f"\nEnglish: "
             for pred in decoded_preds:
                 pred = clean_outputstring(pred, suffix)
@@ -732,7 +735,7 @@ def main():
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
-        compute_metrics=compute_metrics if training_args.do_eval and not is_torch_tpu_available() else None,
+        compute_metrics=compute_metrics if (training_args.do_eval or training_args.do_predict) and not is_torch_tpu_available() else None,
     )
 
     # Training
@@ -755,7 +758,7 @@ def main():
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
-
+        # model.save_pretrained(training_args.output_dir) 
     # Prediction
     if training_args.do_predict:
         logger.info("*** Prediction ***")

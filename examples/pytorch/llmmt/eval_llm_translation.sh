@@ -55,3 +55,13 @@ comet-score -s ${eval_path} -t ${output_path} -r ${gold_path} > ${output_path}.c
 cat ${output_path}.bleu
 tail -n 1 ${output_path}.comet
 
+# python eval_llm_translation.py \
+# --model_name decapoda-research/llama-7b-hf \
+# --eval_path ./tmp/test-llama2/gold.de-en.de \
+# --output_path ./tmp/test-llama2/eval-de-en.en \
+# --src_lang de \
+# --tgt_lang en \
+# --beam_size 5 \
+# --batch_size 1 \
+# --seed 42 \
+# --max_token_in_seq 64 

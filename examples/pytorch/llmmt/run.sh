@@ -1,58 +1,68 @@
 source activate llmmt2
-# python run_clm.py \
-#     --model_name_or_path facebook/opt-125m \
-#     --do_train \
-#     --do_eval \
-#     --do_predict \
-#     --language_pairs de-en \
-#     --suffix 100000 \
-#     --data_path /home/aiscuser/filtered_wmt22/ \
-#     --ignore_prompt_token_for_loss \
-#     --per_device_train_batch_size 32 \
-#     --per_device_eval_batch_size 8 \
-#     --evaluation_strategy steps \
-#     --eval_steps 0.05 \
-#     --save_strategy steps \
-#     --save_steps 0.05 \
-#     --save_total_limit 2 \
-#     --logging_strategy steps \
-#     --logging_steps 0.05 \
-#     --output_dir ./tmp/test-clm \
-#     --num_train_epochs 10 \
-#     --max_eval_samples 100 \
-#     --max_test_samples 100 \
-#     --predict_with_generate \
-#     --prediction_loss_only \
-#     --max_new_tokens 64 \
-#     --max_source_length 128 \
-#     # --overwrite_cache \
-#     # --overwrite_output_dir \
-    
-
-
+torchrun --nproc_per_node 8 run_clm.py \
+    --model_name_or_path facebook/opt-125m \
+    --use_peft \
+    --do_train \
+    --do_eval \
+    --do_predict \
+    --language_pairs de-en \
+    --suffix 1000000 \
+    --data_path /home/aiscuser/filtered_wmt22/ \
+    --learning_rate 0.001 \
+    --ignore_prompt_token_for_loss \
+    --per_device_train_batch_size 4 \
+    --per_device_eval_batch_size 4 \
+    --evaluation_strategy steps \
+    --eval_steps 0.05 \
+    --save_strategy steps \
+    --save_steps 0.05 \
+    --save_total_limit 2 \
+    --logging_strategy steps \
+    --logging_steps 0.05 \
+    --output_dir ./tmp/test-adapter \
+    --num_train_epochs 1 \
+    --predict_with_generate \
+    --prediction_loss_only \
+    --max_new_tokens 128 \
+    --max_source_length 128 \
+    --seed 42 \
+    --fp16 \
+    --fp16_full_eval \
+    --fp16_backend auto \
+    --torch_dtype float16 \
+    --overwrite_cache \
+    --overwrite_output_dir
+    # --max_eval_samples 100 \
+    # --max_test_samples 100 \
+exit
     #     --fp16 \
     # --fp16_full_eval \
     # --fp16_backend auto \
     # --torch_dtype float16 \
-
+# absolute_lr = base_lr * total_batch_size / 256",
 # decapoda-research/llama-7b-hf
-python run_clm.py \
+# torchrun --nproc_per_node 8 
+accelerate launch run_clm.py \
     --model_name_or_path decapoda-research/llama-7b-hf \
     --do_predict \
     --language_pairs de-en \
     --data_path /home/aiscuser/filtered_wmt22/ \
     --ignore_prompt_token_for_loss \
-    --per_device_eval_batch_size 1 \
-    --output_dir ./tmp/llama \
+    --per_device_eval_batch_size 3 \
+    --output_dir ./tmp/test-llama2 \
     --predict_with_generate \
-    --max_new_tokens 128 \
-    --max_source_length 128 \
+    --max_new_tokens 64 \
+    --max_source_length 64 \
+    --seed 42 \
+    --max_test_samples 100 \
+    --overwrite_output_dir
+
 
 src=de
 tgt=en
 src_path=/home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}
 tgt_path=/home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${tgt}
-output_path=./tmp/llama/de-en.txt #./tmp/test-clm/de-en.txt
+output_path=./tmp/test-llama/de-en.txt #./tmp/test-clm/de-en.txt
 TOK="13a"
 if [ ${tgt} == "zh" ]; then
     TOK="zh"

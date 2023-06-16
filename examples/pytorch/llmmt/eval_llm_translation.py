@@ -64,12 +64,31 @@ def generate(args):
     else:
         tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=False, padding_side='left')
 
-    if "llama" in args.model_name or "falcon" in args.model_name or "mpt" in args.model_name:
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-
     # print(tokenizerd("test", return_tensors="pt", padding=is_padding))
     model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.float16, trust_remote_code=True).cuda()
+    model.eval()
+
+    if "llama" in args.model_name:
+        tokenizer.pad_token_id = 0
+        tokenizer.bos_token_id = 1
+        tokenizer.eos_token_id = 2
+        model.config.pad_token_id = 0
+        model.config.bos_token_id = 1
+        model.config.eos_token_id = 2
+    elif "mpt" in args.model_name:
+        tokenizer.pad_token_id = 1
+        tokenizer.bos_token_id = 0
+        tokenizer.eos_token_id = 0
+        model.config.pad_token_id = 1
+        model.config.bos_token_id = 0
+        model.config.eos_token_id = 0
+    elif "falcon" in args.model_name:
+        tokenizer.pad_token_id = 11
+        tokenizer.bos_token_id = 11
+        tokenizer.eos_token_id = 11
+        model.config.pad_token_id = 11
+        model.config.bos_token_id = 11
+        model.config.eos_token_id = 11
 
     src_fullname = LANG_TABLE[args.src_lang]
     tgt_fullname = LANG_TABLE[args.tgt_lang]
@@ -85,11 +104,12 @@ def generate(args):
     # Generate
     cleaned_outputs = []
     for eval_batch in tqdm(eval_data):
-        input_ids = tokenizer(eval_batch, return_tensors="pt", padding=True).input_ids.cuda()
+        input_ids = tokenizer(eval_batch, return_tensors="pt", padding=True, max_length=args.max_token_in_seq, truncation=True).input_ids.cuda()
         max_length = min(int(input_ids.shape[-1] * 2.5), args.max_token_in_seq)
         # truncate the input length
         # input_ids = input_ids[:, :int(args.max_token_in_seq/2)]
-        generated_ids = model.generate(input_ids, num_beams=args.beam_size, length_penalty=1, max_length=max_length, do_sample=True, top_k=50)
+        with torch.no_grad():
+            generated_ids = model.generate(input_ids, num_beams=args.beam_size, max_new_tokens=max_length)
         outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         for out in outputs:
             cleaned_out = clean_outputstring(out, key_word=suffix)
