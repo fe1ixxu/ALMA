@@ -60,7 +60,7 @@ from transformers.utils.versions import require_version
 from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, TaskType
 from peft import PeftModel, PeftConfig
 from collections import defaultdict
-
+from transformers.trainer_callback import TrainerCallback
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.30.0.dev0")
@@ -88,6 +88,31 @@ LANG_TABLE = {
     "ro": "Romanian",
 }
 
+from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
+
+# class SavePeftModelCallback(TrainerCallback):
+#     def on_save(
+#         self,
+#         args,
+#         state,
+#         control,
+#         **kwargs,
+#     ):
+#         checkpoint_folder = os.path.join(
+#             args.output_dir, f"{PREFIX_CHECKPOINT_DIR}-{state.global_step}"
+#         )       
+
+#         peft_model_path = os.path.join(checkpoint_folder, "adapter_model")
+#         kwargs["model"].save_pretrained(peft_model_path)
+
+#         pytorch_model_path = os.path.join(checkpoint_folder, "pytorch_model.bin")
+#         try:
+#             if os.path.exists(pytorch_model_path):
+#                 os.remove(pytorch_model_path)
+#         except:
+#             pass
+#         return control
+    
 @dataclass
 class ModelArguments:
     """
@@ -281,6 +306,14 @@ class DataTrainingArguments:
             )
         },
     )
+    num_beams: Optional[int] = field(
+        default=5,
+        metadata={
+            "help": (
+                "Beam size for generation"
+            )
+        }
+    )
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
     # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})
 
@@ -349,8 +382,8 @@ def main():
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and (training_args.do_train or training_args.do_predict ) and not training_args.overwrite_output_dir:
-        last_checkpoint = get_last_checkpoint(training_args.output_dir)
-
+        last_checkpoint = training_args.output_dir
+        # last_checkpoint = get_last_checkpoint(training_args.output_dir)
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
@@ -379,7 +412,7 @@ def main():
             tgt_lang = pair.split("-")[1]
             train_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"train.{src_lang}-{tgt_lang}-{data_args.suffix}.json")
             valid_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"valid.{src_lang}-{tgt_lang}.json")
-            test_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"test.{src_lang}-{tgt_lang}.json")
+            test_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"valid.{src_lang}-{tgt_lang}.json")
             if training_args.do_train and os.path.isfile(train_file): 
                 data_files["train"].append(train_file)
             if training_args.do_eval and os.path.isfile(valid_file):
@@ -511,6 +544,7 @@ def main():
                 task_type="CAUSAL_LM"
             )
             model = get_peft_model(model, config)
+            
         print_trainable_parameters(model)
 
     # Preprocessing the datasets.
@@ -539,7 +573,7 @@ def main():
         src_fullname = LANG_TABLE[source_lang]
         tgt_fullname = LANG_TABLE[target_lang]
         prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
-        suffix = f"\n{tgt_fullname}: "
+        suffix = f"\n{tgt_fullname}:"
         prompt = prefix + ex[source_lang] + suffix
         return prompt
     
@@ -681,12 +715,12 @@ def main():
                 logger.info(f"Detect empty output AGAIN, we ignore it and move to next EOL: {out[2].strip()}")
                 return out[2].strip()
         except:
-            logger.info("Can not recover the translation by moving to the next EOL.. Trying move to the next suffix")
+            logger.info(f"Can not recover the translation by moving to the next EOL.. Trying move to the next suffix")
             
         try:
             return output.split(key_word)[2].split("\n")[0].strip()
         except:
-            logger.info("Can not solve the edge case, recover the translation to empty string!")
+            logger.info(f"Can not solve the edge case, recover the translation to empty string! The output is {output}")
             return ""
     
     def postprocess_text(preds, labels):
@@ -707,13 +741,13 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-        for idx in range(10):
-            print("------------------------")
-            print(decoded_preds[idx])
-            print(decoded_labels[idx])
+        # for idx in range(10):
+        #     print("------------------------")
+        #     print(decoded_preds[idx])
+        #     print(decoded_labels[idx])
             
-        with open(os.path.join(training_args.output_dir, "de-en-100.3.txt"), "w", encoding="utf-8") as f:
-            suffix = f"\nEnglish: "
+        with open(os.path.join(training_args.output_dir, "de-en-valid.beam1"), "w", encoding="utf-8") as f:
+            suffix = f"\nEnglish:"
             for pred in decoded_preds:
                 pred = clean_outputstring(pred, suffix)
                 f.writelines([pred, "\n"])
@@ -736,6 +770,7 @@ def main():
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
         compute_metrics=compute_metrics if (training_args.do_eval or training_args.do_predict) and not is_torch_tpu_available() else None,
+        # callbacks=[SavePeftModelCallback],
     )
 
     # Training
@@ -758,7 +793,8 @@ def main():
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
-        # model.save_pretrained(training_args.output_dir) 
+        if model_args.use_peft:
+            model.save_pretrained(training_args.output_dir) 
     # Prediction
     if training_args.do_predict:
         logger.info("*** Prediction ***")
@@ -767,7 +803,7 @@ def main():
         metrics = trainer.predict(
             test_dataset=test_dataset, 
             max_new_tokens=data_args.max_new_tokens, 
-            num_beams=5, 
+            num_beams=data_args.num_beams, 
             metric_key_prefix="test"
         )
 

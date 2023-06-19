@@ -65,3 +65,6 @@ tail -n 1 ${output_path}.comet
 # --batch_size 1 \
 # --seed 42 \
 # --max_token_in_seq 64 
+# src=de
+# tgt=en
+# comet-score -s ./gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}  -t ./gpt-MT/evaluation/system-outputs/text-davinci-003/zeroshot/${src}${tgt}/test.${src}-${tgt}.${tgt} -r ./gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${tgt} 
