@@ -61,6 +61,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, Ta
 from peft import PeftModel, PeftConfig
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
+from datasets import concatenate_datasets
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.30.0.dev0")
@@ -87,6 +88,8 @@ LANG_TABLE = {
     "ha": "Hausa",
     "ro": "Romanian",
 }
+TEST_SRC_LANG = "en"
+TEST_TGT_LANG = "is"
 
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
@@ -406,27 +409,53 @@ def main():
             streaming=data_args.streaming,
         )
     else:
-        data_files = defaultdict(list)
+        seen_files =set([])
+        train_raw_data, valid_raw_data, test_raw_data = {}, {}, {}
         for pair in pairs:
             src_lang = pair.split("-")[0]
             tgt_lang = pair.split("-")[1]
-            train_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"train.{src_lang}-{tgt_lang}-{data_args.suffix}.json")
-            valid_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"valid.{src_lang}-{tgt_lang}.json")
-            test_file = os.path.join(data_args.data_path, src_lang+tgt_lang, f"valid.{src_lang}-{tgt_lang}.json")
-            if training_args.do_train and os.path.isfile(train_file): 
-                data_files["train"].append(train_file)
-            if training_args.do_eval and os.path.isfile(valid_file):
-                data_files["validation"].append(valid_file)
-            if training_args.do_predict and os.path.isfile(test_file):
-                data_files["test"].append(test_file)
 
-        raw_datasets = load_dataset(
-            "json",
-            data_files=data_files,
-            cache_dir=model_args.cache_dir,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-    
+            # The directory is always "xxen", e.g., deen
+            first_lang = src_lang if src_lang != "en" else tgt_lang
+            second_lang = "en"
+            pair_dir = first_lang + second_lang
+
+            train_file = os.path.join(data_args.data_path, pair_dir, f"train.{first_lang}-{second_lang}-{data_args.suffix}.json")
+            valid_file = os.path.join(data_args.data_path, pair_dir, f"valid.{first_lang}-{second_lang}.json")
+            test_file = os.path.join(data_args.data_path, pair_dir, f"test.{src_lang}-{tgt_lang}.json")
+            
+            if not os.path.isfile(train_file):
+                logger.info(f"Warning: training file {train_file} does not exist!")
+            elif train_file not in seen_files:
+                train_raw_data[f"{first_lang}-{second_lang}"] = load_dataset(
+                    "json",
+                    data_files={"train": train_file},
+                    cache_dir=model_args.cache_dir,
+                    use_auth_token=True if model_args.use_auth_token else None,
+                    )
+            if not os.path.isfile(valid_file):
+                logger.info(f"Warning: validation file {valid_file} does not exist!")
+            elif valid_file not in seen_files:
+                valid_raw_data[f"{first_lang}-{second_lang}"] = load_dataset(
+                    "json",
+                    data_files={"validation": valid_file},
+                    cache_dir=model_args.cache_dir,
+                    use_auth_token=True if model_args.use_auth_token else None,
+                    )
+            if not os.path.isfile(test_file):
+                logger.info(f"Warning: test file {test_file} does not exist!")
+            elif test_file not in seen_files:
+                test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
+                    "json",
+                    data_files={"test": test_file},
+                    cache_dir=model_args.cache_dir,
+                    use_auth_token=True if model_args.use_auth_token else None,
+                    )
+                test_raw_data[f"{src_lang}-{tgt_lang}"] = test_raw_data[f"{src_lang}-{tgt_lang}"].rename_column("translation", f"{src_lang}-{tgt_lang}")
+
+            seen_files.add(train_file)
+            seen_files.add(valid_file)
+            seen_files.add(test_file)
 
     # See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
     # https://huggingface.co/docs/datasets/loading_datasets.html.
@@ -524,6 +553,9 @@ def main():
         model.config.pad_token_id = 0
         model.config.bos_token_id = 1
         model.config.eos_token_id = 2
+        model.generation_config.pad_token_id = 0
+        model.generation_config.bos_token_id = 1
+        model.generation_config.eos_token_id = 2
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
     embedding_size = model.get_input_embeddings().weight.shape[0]
@@ -549,15 +581,7 @@ def main():
 
     # Preprocessing the datasets.
     # First we tokenize all the texts.
-    if training_args.do_train:
-        column_names = raw_datasets["train"].column_names
-    elif training_args.do_eval:
-        column_names = raw_datasets["validation"].column_names
-    elif training_args.do_predict:
-        column_names = raw_datasets["test"].column_names
-    else:
-        logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
-        return
+    column_names = ["translation"]
 
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
@@ -588,7 +612,7 @@ def main():
     #             tokenized_inputs.input_ids[idx].pop(-1)
     #             tokenized_inputs.attention_mask[idx].pop(-1)
 
-    def tokenize_function_train(examples):
+    def tokenize_function_train_eval(examples):
         inputs = []
         prompts = []
         for ex in examples["translation"]:
@@ -621,16 +645,13 @@ def main():
     def tokenize_function_test(examples):
         prompts = []
         targets = []
-        for ex in examples["translation"]:
-            source_lang, target_lang = list(ex.keys())
+        feature_name = list(examples.keys())[0]
+        source_lang, target_lang = feature_name.split("-")
+        for ex in examples[feature_name]:
             if f"{source_lang}-{target_lang}" in pairs:
                 prompt = get_prompt(source_lang, target_lang, ex)
                 prompts.append(prompt)
                 targets.append(prompt + ex[target_lang])
-            if f"{target_lang}-{source_lang}" in pairs:
-                prompt = get_prompt(target_lang, source_lang, ex)
-                prompts.append(prompt)
-                targets.append(prompt + ex[source_lang])
         model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
         # check_remove_eos(model_inputs)
         labels = tokenizer(targets, max_length=model.config.max_length - 1, padding=padding, truncation=True, add_special_tokens=True)
@@ -650,55 +671,64 @@ def main():
         return model_inputs
 
     if training_args.do_train:
-        if "train" not in raw_datasets:
-            raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets["train"]
-        if data_args.max_train_samples is not None:
-            max_train_samples = min(len(train_dataset), data_args.max_train_samples)
-            train_dataset = train_dataset.select(range(max_train_samples))
-        with training_args.main_process_first(desc="train dataset map pre-processing"):
-            train_dataset = train_dataset.map(
-                tokenize_function_train,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer on train dataset",
-            )
+        processed_datasets = []
+        for lg_pair, sub_raw_data in train_raw_data.items():
+            train_dataset = sub_raw_data["train"]
+            if data_args.max_train_samples is not None:
+                max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                train_dataset = train_dataset.select(range(max_train_samples))
+            with training_args.main_process_first(desc="train dataset map pre-processing"):
+                train_dataset = train_dataset.map(
+                    tokenize_function_train_eval,
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=column_names,
+                    load_from_cache_file=not data_args.overwrite_cache,
+                    desc="Running tokenizer on train dataset",
+                )
+            processed_datasets.append(train_dataset)
+        train_datasets = concatenate_datasets(processed_datasets)
+        train_datasets = train_datasets.shuffle(seed=training_args.seed)
+        
 
     if training_args.do_eval:
-        if "validation" not in raw_datasets:
-            raise ValueError("--do_eval requires a validation dataset")
-        eval_dataset = raw_datasets["validation"]
-        if data_args.max_eval_samples is not None:
-            max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
-            eval_dataset = eval_dataset.select(range(max_eval_samples))
-        with training_args.main_process_first(desc="validation dataset map pre-processing"):
-            eval_dataset = eval_dataset.map(
-                tokenize_function_train,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer valid dataset",
-            )
+        processed_datasets = []
+        for lg_pair, sub_raw_data in valid_raw_data.items():
+            eval_dataset = sub_raw_data["validation"]
+            if data_args.max_eval_samples is not None:
+                max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
+                eval_dataset = eval_dataset.select(range(max_eval_samples))
+            with training_args.main_process_first(desc="validation dataset map pre-processing"):
+                eval_dataset = eval_dataset.map(
+                    tokenize_function_train_eval,
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=column_names,
+                    load_from_cache_file=not data_args.overwrite_cache,
+                    desc="Running tokenizer valid dataset",
+                )
+            processed_datasets.append(eval_dataset)
+        eval_datasets = concatenate_datasets(processed_datasets)
+        eval_datasets = eval_datasets.shuffle(seed=training_args.seed)
 
     if training_args.do_predict:
-        if "test" not in raw_datasets:
-            raise ValueError("--do_predict requires a test dataset")
-        test_dataset = raw_datasets["test"]
-        if data_args.max_test_samples is not None:
-            max_test_samples = min(len(test_dataset), data_args.max_test_samples)
-            test_dataset = test_dataset.select(range(max_test_samples))
-        with training_args.main_process_first(desc="test dataset map pre-processing"):
-            test_dataset = test_dataset.map(
-                tokenize_function_test,
-                batched=True,
-                num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
-                load_from_cache_file=not data_args.overwrite_cache,
-                desc="Running tokenizer test dataset",
-            )
+        test_datasets = {}
+        for lg_pair, sub_raw_data in test_raw_data.items():
+            test_dataset = sub_raw_data["test"]
+            if data_args.max_test_samples is not None:
+                max_test_samples = min(len(test_dataset), data_args.max_test_samples)
+                test_dataset = test_dataset.select(range(max_test_samples))
+            with training_args.main_process_first(desc="test dataset map pre-processing"):
+                test_dataset = test_dataset.map(
+                    tokenize_function_test,
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=[lg_pair],
+                    load_from_cache_file=not data_args.overwrite_cache,
+                    desc="Running tokenizer test dataset",
+                )
+            test_datasets[lg_pair] = test_dataset
+
     metric = evaluate.load("sacrebleu")
 
     ## MTSEQ2SEQ
@@ -730,6 +760,7 @@ def main():
         return preds, labels
 
     def compute_metrics(eval_preds):
+        global TEST_SRC_LANG, TEST_TGT_LANG
         preds, labels = eval_preds
         if isinstance(preds, tuple):
             preds = preds[0]
@@ -741,13 +772,12 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-        # for idx in range(10):
-        #     print("------------------------")
-        #     print(decoded_preds[idx])
-        #     print(decoded_labels[idx])
-            
-        with open(os.path.join(training_args.output_dir, "de-en-valid.beam1"), "w", encoding="utf-8") as f:
-            suffix = f"\nEnglish:"
+        for idx in range(10):
+            print("------------------------")
+            print(decoded_preds[idx])
+            print(decoded_labels[idx])
+        with open(os.path.join(training_args.output_dir, f"test-{TEST_SRC_LANG}-{TEST_TGT_LANG}"), "w", encoding="utf-8") as f:
+            suffix = f"\n{LANG_TABLE[TEST_TGT_LANG]}:"
             for pred in decoded_preds:
                 pred = clean_outputstring(pred, suffix)
                 f.writelines([pred, "\n"])
@@ -764,8 +794,8 @@ def main():
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        train_dataset=train_dataset if training_args.do_train else None,
-        eval_dataset=eval_dataset if training_args.do_eval else None,
+        train_dataset=train_datasets if training_args.do_train else None,
+        eval_dataset=eval_datasets if training_args.do_eval else None,
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
         data_collator=default_data_collator,
@@ -778,7 +808,7 @@ def main():
         checkpoint = None
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
-        elif last_checkpoint is not None:
+        elif last_checkpoint is not None and not model_args.use_peft:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model()  # Saves the tokenizer too for easy upload
@@ -797,15 +827,16 @@ def main():
             model.save_pretrained(training_args.output_dir) 
     # Prediction
     if training_args.do_predict:
-        logger.info("*** Prediction ***")
-        results = {}
         trainer.args.prediction_loss_only = False
-        metrics = trainer.predict(
-            test_dataset=test_dataset, 
-            max_new_tokens=data_args.max_new_tokens, 
-            num_beams=data_args.num_beams, 
-            metric_key_prefix="test"
-        )
+        for lg_pair, test_dataset in test_datasets.items():
+            logger.info(f"*** Prediction for {lg_pair}***")
+            TEST_SRC_LANG, TEST_TGT_LANG = lg_pair.split("-")
+            metrics = trainer.predict(
+                test_dataset=test_dataset, 
+                max_new_tokens=data_args.max_new_tokens, 
+                num_beams=data_args.num_beams, 
+                metric_key_prefix="test"
+            )
 
 def _mp_fn(index):
     # For xla_spawn (TPUs)
