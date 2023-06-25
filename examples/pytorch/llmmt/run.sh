@@ -18,7 +18,7 @@ export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 
 suffix=${1:-10000}
 export WANDB_PROJECT=LLMMT-pre
-export WANDB_NAME=our_alpaca-cosine-bf16
+export WANDB_NAME=our_alpaca-cosine
 # OUTPUT_DIR=./tmp/full-ft-mmt
 # accelerate launch --config_file deepspeed_train_config.yaml \
 #      run_clm.py \
@@ -64,7 +64,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
      run_clm.py \
     --model_name_or_path decapoda-research/llama-7b-hf \
     --do_train \
-    --bf16 \
+    --fp16 \
     --instruct_data_path /home/aiscuser/stanford_alpaca/alpaca_data.json \
     --learning_rate 2e-5 \
     --weight_decay 0. \
