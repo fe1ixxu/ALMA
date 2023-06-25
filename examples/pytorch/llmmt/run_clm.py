@@ -62,7 +62,8 @@ from peft import PeftModel, PeftConfig
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
-from utils.utils import LANG_TABLE, load_mmt_dataset, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer_and_model
+from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
+from utils.utils import load_mmt_dataset, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer_and_model
 from utils.arguments import ModelArguments, DataTrainingArguments
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -138,18 +139,55 @@ def main():
             streaming=data_args.streaming,
         )
     else:
-        train_raw_data, valid_raw_data, test_raw_data = load_mmt_dataset(pairs, data_args, model_args, logger)
-
+        if data_args.mmt_data_path:
+            train_raw_data, valid_raw_data, test_raw_data = load_mmt_dataset(pairs, data_args, model_args, logger)
+        if data_args.instruct_data_path:
+            train_instruct_raw_data = load_dataset(
+                "json",
+                data_files=data_args.instruct_data_path,
+                cache_dir=model_args.cache_dir,
+                use_auth_token=True if model_args.use_auth_token else None,
+            )
     ## load tokenizer and model
     tokenizer, model = load_tokenizer_and_model(data_args, model_args, training_args, logger)
     # Preprocessing the datasets.
-    # First we tokenize all the texts.
-    column_names = ["translation"]
-
+    column_names = []
+    if data_args.instruct_data_path:
+        column_names += ["instruction", "output", "input"]
+    if data_args.mmt_data_path:
+        column_names += ["translation"]
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
     padding = "max_length"
 
+    def instruct_tokenize_function(examples):
+        inputs = []
+        prompts = []
+        prompt_input, prompt_no_input = INSTRUCT_PROMPT_DICT["prompt_input"], INSTRUCT_PROMPT_DICT["prompt_no_input"]
+        for instruction, output, input in zip(examples['instruction'], examples['output'], examples['input']):
+            ex = {
+                "instruction": instruction,
+                "input": input,
+            }
+            prompt = prompt_input.format_map(ex) if input != "" else prompt_no_input.format_map(ex)
+            prompts.append(prompt)
+            inputs.append(prompt + output)
+        model_inputs = tokenizer(inputs, max_length=model.config.max_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos(model_inputs, tokenizer)
+        labels = copy.deepcopy(model_inputs)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
+                    first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
+                    labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
 
     def tokenize_function_train_eval(examples):
         inputs = []
@@ -196,21 +234,39 @@ def main():
 
     if training_args.do_train:
         processed_datasets = []
-        for lg_pair, sub_raw_data in train_raw_data.items():
-            train_dataset = sub_raw_data["train"]
+        if data_args.mmt_data_path:
+            for lg_pair, sub_raw_data in train_raw_data.items():
+                train_dataset = sub_raw_data["train"]
+                if data_args.max_train_samples is not None:
+                    max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                    train_dataset = train_dataset.select(range(max_train_samples))
+                with training_args.main_process_first(desc="train dataset map pre-processing"):
+                    train_dataset = train_dataset.map(
+                        tokenize_function_train_eval,
+                        batched=True,
+                        num_proc=data_args.preprocessing_num_workers,
+                        remove_columns=column_names,
+                        load_from_cache_file=not data_args.overwrite_cache,
+                        desc="Running tokenizer on MMT train dataset",
+                    )
+                processed_datasets.append(train_dataset)
+        elif data_args.instruct_data_path:
+            train_dataset = train_instruct_raw_data["train"]
             if data_args.max_train_samples is not None:
                 max_train_samples = min(len(train_dataset), data_args.max_train_samples)
                 train_dataset = train_dataset.select(range(max_train_samples))
             with training_args.main_process_first(desc="train dataset map pre-processing"):
                 train_dataset = train_dataset.map(
-                    tokenize_function_train_eval,
+                    instruct_tokenize_function,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names,
                     load_from_cache_file=not data_args.overwrite_cache,
-                    desc="Running tokenizer on train dataset",
+                    desc="Running tokenizer on instruct train dataset",
                 )
             processed_datasets.append(train_dataset)
+
+
         train_datasets = concatenate_datasets(processed_datasets)
         train_datasets = train_datasets.shuffle(seed=training_args.seed)
         

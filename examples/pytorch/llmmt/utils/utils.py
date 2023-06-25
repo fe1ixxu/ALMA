@@ -94,6 +94,19 @@ LANG_TABLE = {
     "ro": "Romanian",
 }
 
+INSTRUCT_PROMPT_DICT = {
+    "prompt_input": (
+        "Below is an instruction that describes a task, paired with an input that provides further context. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response:"
+    ),
+    "prompt_no_input": (
+        "Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request.\n\n"
+        "### Instruction:\n{instruction}\n\n### Response:"
+    ),
+}
+
 
 def load_mmt_dataset(pairs, data_args, model_args, logger):
     seen_files =set([])
@@ -107,9 +120,9 @@ def load_mmt_dataset(pairs, data_args, model_args, logger):
         second_lang = "en"
         pair_dir = first_lang + second_lang
 
-        train_file = os.path.join(data_args.data_path, pair_dir, f"train.{first_lang}-{second_lang}-{data_args.suffix}.json")
-        valid_file = os.path.join(data_args.data_path, pair_dir, f"valid.{first_lang}-{second_lang}.json")
-        test_file = os.path.join(data_args.data_path, pair_dir, f"test.{src_lang}-{tgt_lang}.json")
+        train_file = os.path.join(data_args.mmt_data_path, pair_dir, f"train.{first_lang}-{second_lang}-{data_args.suffix}.json")
+        valid_file = os.path.join(data_args.mmt_data_path, pair_dir, f"valid.{first_lang}-{second_lang}.json")
+        test_file = os.path.join(data_args.mmt_data_path, pair_dir, f"test.{src_lang}-{tgt_lang}.json")
         
         if not os.path.isfile(train_file):
             logger.info(f"Warning: training file {train_file} does not exist!")

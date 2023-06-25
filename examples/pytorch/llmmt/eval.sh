@@ -4,7 +4,7 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --model_name_or_path decapoda-research/llama-7b-hf \
     --do_predict \
     --language_pairs ${TEST_PAIRS} \
-    --data_path /home/aiscuser/filtered_wmt22/ \
+    --mmt_data_path /home/aiscuser/filtered_wmt22/ \
     --per_device_eval_batch_size 4 \
     --output_dir ./tmp/full-ft-mmt \
     --predict_with_generate \
