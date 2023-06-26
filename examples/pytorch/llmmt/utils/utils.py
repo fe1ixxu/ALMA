@@ -108,7 +108,7 @@ INSTRUCT_PROMPT_DICT = {
 }
 
 
-def load_mmt_dataset(pairs, data_args, model_args, logger):
+def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
     seen_files =set([])
     train_raw_data, valid_raw_data, test_raw_data = {}, {}, {}
     for pair in pairs:
@@ -128,7 +128,7 @@ def load_mmt_dataset(pairs, data_args, model_args, logger):
         
         if not os.path.isfile(train_file):
             logger.info(f"Warning: training file {train_file} does not exist!")
-        elif train_file not in seen_files:
+        elif train_file not in seen_files and training_args.do_train:
             train_raw_data[f"{first_lang}-{second_lang}"] = load_dataset(
                 "json",
                 data_files={"train": train_file},
@@ -137,7 +137,7 @@ def load_mmt_dataset(pairs, data_args, model_args, logger):
                 )
         if not os.path.isfile(valid_file):
             logger.info(f"Warning: validation file {valid_file} does not exist!")
-        elif valid_file not in seen_files:
+        elif valid_file not in seen_files and training_args.do_eval:
             valid_raw_data[f"{first_lang}-{second_lang}"] = load_dataset(
                 "json",
                 data_files={"validation": valid_file},
@@ -146,7 +146,7 @@ def load_mmt_dataset(pairs, data_args, model_args, logger):
                 )
         if not os.path.isfile(test_file):
             logger.info(f"Warning: test file {test_file} does not exist!")
-        elif test_file not in seen_files:
+        elif test_file not in seen_files and training_args.do_predict:
             test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
                 "json",
                 data_files={"test": test_file},

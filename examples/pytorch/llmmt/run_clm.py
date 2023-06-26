@@ -140,7 +140,7 @@ def main():
         )
     else:
         if data_args.mmt_data_path:
-            train_raw_data, valid_raw_data, test_raw_data = load_mmt_dataset(pairs, data_args, model_args, logger)
+            train_raw_data, valid_raw_data, test_raw_data = load_mmt_dataset(pairs, data_args, model_args, training_args, logger)
         if data_args.instruct_data_path:
             train_instruct_raw_data = load_dataset(
                 "json",

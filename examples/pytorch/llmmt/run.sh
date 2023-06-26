@@ -21,7 +21,7 @@ export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 export WANDB_PROJECT=LLMMT-pre
 export WANDB_NAME=${exp_name}
 OUTPUT_DIR=/home/aiscuser/checkpoints/llmmt-pre/${exp_name}
-if [ ${data} == "train" ]; then
+if [ ${data} == "wmt" ]; then
     DATASET=/home/aiscuser/filtered_wmt22/
     SUFFIX="--suffix 100000"
 else
@@ -71,7 +71,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
 
     # --overwrite_cache \
     # facebook/opt-125m
-    # SACREBLEU_FORMAT=text sacrebleu -tok 13a -w 2 ${OUTPUT_DIR}/de-en-test </home/aiscuser/filtered_wmt22/devset/test.de-en.en
+    # SACREBLEU_FORMAT=text sacrebleu -tok 13a -w 2 /home/aiscuser/flores200/llama-13b/test-en-de </home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/ende/test.en-de.de
     # --save_steps 0.1 \
     # --save_total_limit 2 \     --ignore_prompt_token_for_loss \
     # --fp16_full_eval \
