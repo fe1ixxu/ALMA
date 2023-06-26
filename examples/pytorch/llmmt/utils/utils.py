@@ -120,7 +120,9 @@ def load_mmt_dataset(pairs, data_args, model_args, logger):
         second_lang = "en"
         pair_dir = first_lang + second_lang
 
-        train_file = os.path.join(data_args.mmt_data_path, pair_dir, f"train.{first_lang}-{second_lang}-{data_args.suffix}.json")
+        
+        h_suffix = f"-{data_args.suffix}" if data_args.suffix else ""
+        train_file = os.path.join(data_args.mmt_data_path, pair_dir, f"train.{first_lang}-{second_lang}{h_suffix}.json")
         valid_file = os.path.join(data_args.mmt_data_path, pair_dir, f"valid.{first_lang}-{second_lang}.json")
         test_file = os.path.join(data_args.mmt_data_path, pair_dir, f"test.{src_lang}-{tgt_lang}.json")
         

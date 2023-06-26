@@ -14,81 +14,63 @@
 # mpt-7b-instruct: mosaicml/mpt-7b-instruct
 ########################################
 ########################################
+exp_name=${1:-""}
+data=${2:-"wmt"}
+pairs=${3:-"en-de"}
 export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
-
-suffix=${1:-10000}
 export WANDB_PROJECT=LLMMT-pre
-export WANDB_NAME=our_alpaca-cosine
-# OUTPUT_DIR=./tmp/full-ft-mmt
-# accelerate launch --config_file deepspeed_train_config.yaml \
-#      run_clm.py \
-#     --model_name_or_path facebook/opt-125m \
-#     --do_train \
-#     --do_eval \
-#     --do_predict \
-#     --language_pairs en-de,de-en \
-#     --load_best_model_at_end \
-#     --fp16 \
-#     --suffix ${suffix} \
-#     --mmt_data_path /home/aiscuser/filtered_wmt22/ \
-#     --learning_rate 0.0001 \
-#     --weight_decay 0.1 \
-#     --gradient_accumulation_steps 1 \
-#     --lr_scheduler_type inverse_sqrt \
-#     --warmup_ratio 0.3 \
-#     --ignore_pad_token_for_loss \
-#     --ignore_prompt_token_for_loss \
-#     --per_device_train_batch_size 4 \
-#     --per_device_eval_batch_size 4 \
-#     --evaluation_strategy steps \
-#     --eval_steps 0.1 \
-#     --save_strategy steps \
-#     --save_steps 0.2 \
-#     --save_total_limit 2 \
-#     --logging_strategy steps \
-#     --logging_steps 0.05 \
-#     --output_dir ${OUTPUT_DIR} \
-#     --num_train_epochs 3 \
-#     --predict_with_generate \
-#     --prediction_loss_only \
-#     --max_new_tokens 256 \
-#     --max_source_length 256 \
-#     --seed 42 \
-#     --overwrite_output_dir \
-#     --report_to wandb
+export WANDB_NAME=${exp_name}
+OUTPUT_DIR=/home/aiscuser/checkpoints/llmmt-pre/${exp_name}
+if [ ${data} == "train" ]; then
+    DATASET=/home/aiscuser/filtered_wmt22/
+    SUFFIX="--suffix 100000"
+else
+    DATASET=/home/aiscuser/flores200/
+fi
 
-
-
-### Instruct Tuning:
 accelerate launch --config_file deepspeed_train_config.yaml \
      run_clm.py \
     --model_name_or_path decapoda-research/llama-7b-hf \
+    --mmt_data_path  ${DATASET} \
     --do_train \
+    --do_eval \
+    --do_predict \
+    --language_pairs ${pairs} \
+    --load_best_model_at_end \
     --fp16 \
-    --instruct_data_path /home/aiscuser/stanford_alpaca/alpaca_data.json \
     --learning_rate 2e-5 \
-    --weight_decay 0. \
+    --weight_decay 0.01 \
+    --gradient_accumulation_steps 1 \
     --lr_scheduler_type cosine \
-    --warmup_ratio 0.03 \
+    --warmup_ratio 0 \
     --ignore_pad_token_for_loss \
     --ignore_prompt_token_for_loss \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
-    --gradient_accumulation_steps 4 \
+    --evaluation_strategy steps \
+    --eval_steps 0.05 \
     --save_strategy steps \
-    --save_steps 2000 \
+    --save_steps 0.05 \
     --save_total_limit 1 \
-    --logging_steps 1 \
-    --output_dir ./tmp/test \
+    --logging_strategy steps \
+    --logging_steps 0.05 \
+    --output_dir ${OUTPUT_DIR} \
     --num_train_epochs 3 \
+    --predict_with_generate \
+    --prediction_loss_only \
     --max_new_tokens 256 \
     --max_source_length 256 \
+    --seed 42 \
     --overwrite_output_dir \
-    --report_to wandb
+    --report_to wandb \
+    --num_beams 5 \
+    ${SUFFIX}
 
-        # --overwrite_cache \
-        # facebook/opt-125m
-# /home/aiscuser/.cache/huggingface/datasets/json/default-fc0d51b772e14738/0.0.0/e347ab1c932092252e717ff3f949105a4dd28b27e842dd53157d2f72e276c2e4/cache-ee15f27a57925f61.arrow
+
+#### Possible fields may be needed
+
+    # --overwrite_cache \
+    # facebook/opt-125m
     # SACREBLEU_FORMAT=text sacrebleu -tok 13a -w 2 ${OUTPUT_DIR}/de-en-test </home/aiscuser/filtered_wmt22/devset/test.de-en.en
     # --save_steps 0.1 \
     # --save_total_limit 2 \     --ignore_prompt_token_for_loss \
