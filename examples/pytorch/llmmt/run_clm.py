@@ -365,7 +365,6 @@ def main():
             checkpoint = training_args.resume_from_checkpoint
 
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-        trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics
 
@@ -379,6 +378,8 @@ def main():
         trainer.save_state()
         if model_args.use_peft:
             model.save_pretrained(training_args.output_dir) 
+        else:
+            trainer.save_model()  # Saves the tokenizer too for easy upload
     # Prediction
     if training_args.do_predict:
         trainer.args.prediction_loss_only = False
