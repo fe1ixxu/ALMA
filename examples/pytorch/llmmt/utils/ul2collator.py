@@ -89,12 +89,12 @@ class DataCollatorForUL2(DataCollatorMixin):
     model: AutoModelForCausalLM
     tokenizer: PreTrainedTokenizerBase
     r_denoising: bool = True
-    r_probability: float = 0.
+    r_probability: float = 0.15
     r_denoising_config: Tuple[Tuple] = ((3, 0.15),)
     s_denoising: bool = True
-    s_probability: float = 1.
+    s_probability: float = 0.45
     x_denoising: bool = True
-    x_probability: float = 0.
+    x_probability: float = 0.40
     x_denoising_config: Tuple[Tuple] = ((32, 0.5), (64, 0.2))
     pad_to_multiple_of: Optional[int] = None
     tf_experimental_compile: bool = False
@@ -118,7 +118,7 @@ class DataCollatorForUL2(DataCollatorMixin):
         return random.choices(self.total_task,weights=self.task_prob, k=batch_size)
 
     def torch_call(self, examples: List[Union[List[int], Any, Dict[str, Any]]]) -> Dict[str, Any]:
-        if torch.rand(1) < 0.5 and self.model.training:
+        if torch.rand(1) < 0.65 and self.model.training:
             return default_data_collator(examples)
 
         # Handle dict or lists with proper padding and conversion to tensor.
@@ -214,13 +214,15 @@ class DataCollatorForUL2(DataCollatorMixin):
             new_batch['input_ids'][x_denoising_idx] = torch.from_numpy(_sub_input_ids).long()
             new_batch['labels'][x_denoising_idx] = torch.from_numpy(_labels).long()
 
-        new_batch["labels"][new_batch["labels"] == self.pad_token_id ] = self.label_pad_token_id
-        new_batch["attention_mask"] = torch.where(
-            new_batch["labels"] == self.label_pad_token_id,
-            0,
-            torch.ones_like(new_batch["labels"]),
-        )
-
+        # new_batch["labels"][new_batch["labels"] == self.pad_token_id ] = self.label_pad_token_id
+        # new_batch["attention_mask"] = torch.where(
+        #     new_batch["labels"] == self.label_pad_token_id,
+        #     0,
+        #     torch.ones_like(new_batch["labels"]),
+        # )
+        ## Override "labels" if CLM:
+        new_batch["labels"] = batch["labels"]
+        new_batch["attention_mask"] = batch["attention_mask"]
         return new_batch 
 
 

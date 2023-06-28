@@ -347,7 +347,9 @@ def main():
     # Prediction
     if training_args.do_predict:
         trainer.args.prediction_loss_only = False
-        for lg_pair, test_dataset in test_datasets.items():
+        lg_pairs = sorted(test_datasets.keys()) # make sure each device print in the same order
+        for lg_pair in lg_pairs:
+            test_dataset = test_datasets[lg_pair]
             src_lang, tgt_lang = lg_pair.split("-")
             logger.info(f"*** Prediction for {lg_pair}***")
             preds, _, _ = trainer.predict(
@@ -358,21 +360,22 @@ def main():
             )
 
             # Replace -100s used for padding as we can't decode them
-            preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
-            decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+            if int(torch.cuda.current_device()) == 0:
+                preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
+                decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-            # Some simple post-processing
-            decoded_preds = [pred.strip() for pred in decoded_preds]
+                # Some simple post-processing
+                decoded_preds = [pred.strip() for pred in decoded_preds]
 
-            # for idx in range(10):
-            #     print("------------------------")
-            #     print(decoded_preds[idx])
+                # for idx in range(10):
+                #     print("------------------------")
+                #     print(decoded_preds[idx])
 
-            with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
-                suffix = f"\n{LANG_TABLE[tgt_lang]}:"
-                for pred in decoded_preds:
-                    pred = clean_outputstring(pred, suffix, logger)
-                    f.writelines([pred, "\n"])
+                with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}-2"), "w", encoding="utf-8") as f:
+                    suffix = f"\n{LANG_TABLE[tgt_lang]}:"
+                    for pred in decoded_preds:
+                        pred = clean_outputstring(pred, suffix, logger)
+                        f.writelines([pred, "\n"])
 
 def _mp_fn(index):
     # For xla_spawn (TPUs)
