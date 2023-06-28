@@ -16,14 +16,14 @@
 ########################################
 exp_name=${1:-""}
 data=${2:-"wmt"}
-pairs=${3:-"en-de"}
+pairs=${3:-"en-de,en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
 export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 export WANDB_PROJECT=LLMMT-pre
 export WANDB_NAME=${exp_name}
 OUTPUT_DIR=/home/aiscuser/checkpoints/llmmt-pre/${exp_name}
 if [ ${data} == "wmt" ]; then
     DATASET=/home/aiscuser/filtered_wmt22/
-    SUFFIX="--suffix 100000"
+    SUFFIX="--suffix 10000"
 else
     DATASET=/home/aiscuser/flores200/
 fi
@@ -40,9 +40,9 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --fp16 \
     --learning_rate 2e-5 \
     --weight_decay 0.01 \
-    --gradient_accumulation_steps 1 \
+    --gradient_accumulation_steps 4 \
     --lr_scheduler_type cosine \
-    --warmup_ratio 0 \
+    --warmup_ratio 0.05 \
     --ignore_pad_token_for_loss \
     --ignore_prompt_token_for_loss \
     --per_device_train_batch_size 4 \
@@ -60,13 +60,14 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --prediction_loss_only \
     --max_new_tokens 256 \
     --max_source_length 256 \
-    --seed 42 \
+    --seed 4 \
     --overwrite_output_dir \
-    --report_to wandb \
     --num_beams 5 \
+    --report_to wandb \
     ${SUFFIX}
 
 
+# --use_ul2 \
 #### Possible fields may be needed
 
     # --overwrite_cache \

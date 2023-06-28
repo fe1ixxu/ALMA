@@ -371,7 +371,7 @@ def main():
                 #     print("------------------------")
                 #     print(decoded_preds[idx])
 
-                with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}-2"), "w", encoding="utf-8") as f:
+                with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
                     suffix = f"\n{LANG_TABLE[tgt_lang]}:"
                     for pred in decoded_preds:
                         pred = clean_outputstring(pred, suffix, logger)
