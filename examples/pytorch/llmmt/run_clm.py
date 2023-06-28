@@ -65,7 +65,7 @@ from datasets import concatenate_datasets
 from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
 from utils.utils import load_mmt_dataset, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer_and_model
 from utils.arguments import ModelArguments, DataTrainingArguments
-
+from utils.ul2collator import DataCollatorForUL2
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.30.0.dev0")
 
@@ -74,10 +74,6 @@ require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/lang
 logger = logging.getLogger(__name__)
 
 from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
-
-
-TEST_SRC_LANG = "en"
-TEST_TGT_LANG = "is"
 
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
@@ -311,40 +307,8 @@ def main():
 
     metric = evaluate.load("sacrebleu")
 
-    ## MTSEQ2SEQ
-
-    # def compute_metrics(eval_preds):
-    #     global TEST_SRC_LANG, TEST_TGT_LANG
-    #     preds, labels = eval_preds
-
-    #     if isinstance(preds, tuple):
-    #         preds = preds[0]
-    #     # Replace -100s used for padding as we can't decode them
-    #     preds = np.where(preds != -100, preds, tokenizer.pad_token_id)
-    #     decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-    #     labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    #     decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-    #     # Some simple post-processing
-    #     decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-    #     for idx in range(10):
-    #         print("------------------------")
-    #         print(decoded_preds[idx])
-    #         print(decoded_labels[idx])
-    #     with open(os.path.join(training_args.output_dir, f"test-{TEST_SRC_LANG}-{TEST_TGT_LANG}"), "w", encoding="utf-8") as f:
-    #         suffix = f"\n{LANG_TABLE[TEST_TGT_LANG]}:"
-    #         for pred in decoded_preds:
-    #             pred = clean_outputstring(pred, suffix, logger)
-    #             f.writelines([pred, "\n"])
-    #     result = metric.compute(predictions=decoded_preds, references=decoded_labels)
-    #     result = {"bleu": result["score"]}
-
-    #     prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
-    #     result["gen_len"] = np.mean(prediction_lens)
-    #     result = {k: round(v, 4) for k, v in result.items()}
-    #     return result
-
     
+    collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
         model=model,
@@ -353,7 +317,7 @@ def main():
         eval_dataset=eval_datasets if training_args.do_eval else None,
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
-        data_collator=default_data_collator,
+        data_collator=collate_fn 
         # compute_metrics=compute_metrics if (training_args.do_eval or training_args.do_predict) and not is_torch_tpu_available() else None,
         # callbacks=[SavePeftModelCallback],
     )

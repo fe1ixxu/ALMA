@@ -181,6 +181,12 @@ class DataTrainingArguments:
             "help": "Whether to ignore the prompt tokens in the loss computation or not."
         },
     )
+    use_ul2: bool = field(
+        default=False,
+        metadata={
+            "help": "Whether to enable mixture of denoisers from UL2 model."
+        },
+    )
     max_source_length: Optional[int] = field(
         default=256,
         metadata={
