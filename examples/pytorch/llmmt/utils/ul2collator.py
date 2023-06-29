@@ -221,7 +221,8 @@ class DataCollatorForUL2(DataCollatorMixin):
         #     torch.ones_like(new_batch["labels"]),
         # )
         ## Override "labels" if CLM:
-        new_batch["labels"] = batch["labels"]
+        if self.model.training:
+            new_batch["labels"] = batch["labels"]
         new_batch["attention_mask"] = batch["attention_mask"]
         return new_batch 
 
