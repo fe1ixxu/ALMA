@@ -63,7 +63,7 @@ from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
 from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
-from utils.utils import load_mmt_dataset, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
+from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -148,15 +148,17 @@ def main():
     set_seed(training_args.seed)
     tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
     # Preprocessing the datasets.
-    column_names = []
     if data_args.instruct_data_path:
-        column_names += ["instruction", "output", "input"]
+        column_names_instruct = ["instruction", "output", "input"]
     if data_args.mmt_data_path:
-        column_names += ["translation"]
+        column_names_mmt = ["translation"]
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
     padding = "max_length"
 
+    #### Decide which prompt used for prompting:
+    
+    get_prompt_fun = get_prompt_mt_instruct if data_args.instruct_data_path else get_prompt
     def instruct_tokenize_function(examples):
         inputs = []
         prompts = []
@@ -192,11 +194,41 @@ def main():
         for ex in examples["translation"]:
             source_lang, target_lang = list(ex.keys())
             if f"{source_lang}-{target_lang}" in pairs:
-                prompt = get_prompt(source_lang, target_lang, ex)
+                prompt = get_prompt_fun(source_lang, target_lang, ex)
                 prompts.append(prompt)
                 inputs.append(prompt + ex[target_lang])
             if f"{target_lang}-{source_lang}" in pairs:
-                prompt = get_prompt(target_lang, source_lang, ex)
+                prompt = get_prompt_fun(target_lang, source_lang, ex)
+                prompts.append(prompt)
+                inputs.append(prompt + ex[source_lang])
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos(model_inputs, tokenizer)
+        labels = copy.deepcopy(model_inputs)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
+                    first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
+                    labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    def tokenize_function_train_eval_with_instruct(examples):
+        inputs = []
+        prompts = []
+        for ex in examples["translation"]:
+            source_lang, target_lang = list(ex.keys())
+            if f"{source_lang}-{target_lang}" in pairs:
+                prompt = get_prompt_fun(source_lang, target_lang, ex)
+                prompts.append(prompt)
+                inputs.append(prompt + ex[target_lang])
+            if f"{target_lang}-{source_lang}" in pairs:
+                prompt = get_prompt_fun(target_lang, source_lang, ex)
                 prompts.append(prompt)
                 inputs.append(prompt + ex[source_lang])
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True)
@@ -223,7 +255,7 @@ def main():
         source_lang, target_lang = feature_name.split("-")
         for ex in examples[feature_name]:
             if f"{source_lang}-{target_lang}" in pairs:
-                prompt = get_prompt(source_lang, target_lang, ex)
+                prompt = get_prompt_fun(source_lang, target_lang, ex)
                 prompts.append(prompt)
                 targets.append(prompt + ex[target_lang])
         model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
@@ -242,12 +274,12 @@ def main():
                         tokenize_function_train_eval,
                         batched=True,
                         num_proc=data_args.preprocessing_num_workers,
-                        remove_columns=column_names,
+                        remove_columns=column_names_mmt,
                         load_from_cache_file=not data_args.overwrite_cache,
                         desc="Running tokenizer on MMT train dataset",
                     )
                 processed_datasets.append(train_dataset)
-        elif data_args.instruct_data_path:
+        if data_args.instruct_data_path:
             train_dataset = train_instruct_raw_data["train"]
             if data_args.max_train_samples is not None:
                 max_train_samples = min(len(train_dataset), data_args.max_train_samples)
@@ -257,7 +289,7 @@ def main():
                     instruct_tokenize_function,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names,
+                    remove_columns=column_names_instruct,
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer on instruct train dataset",
                 )
@@ -280,7 +312,7 @@ def main():
                     tokenize_function_train_eval,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names,
+                    remove_columns=column_names_mmt,
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer valid dataset",
                 )
@@ -375,7 +407,7 @@ def main():
                 #     print(decoded_preds[idx])
 
                 with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
-                    suffix = f"\n{LANG_TABLE[tgt_lang]}:"
+                    suffix = f"\n{LANG_TABLE[tgt_lang]}:" if not data_args.instruct_data_path else "### Response:\n"
                     for pred in decoded_preds:
                         pred = clean_outputstring(pred, suffix, logger)
                         f.writelines([pred, "\n"])

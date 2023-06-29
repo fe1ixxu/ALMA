@@ -176,6 +176,16 @@ def get_prompt(source_lang, target_lang, ex):
     prompt = prefix + ex[source_lang] + suffix
     return prompt
 
+def get_prompt_mt_instruct(source_lang, target_lang, ex):
+    prompt_input = INSTRUCT_PROMPT_DICT["prompt_input"]
+    src_fullname = LANG_TABLE[source_lang]
+    tgt_fullname = LANG_TABLE[target_lang]
+    instruction = f"Translate this input from {src_fullname} to {tgt_fullname}."
+    input = ex[source_lang]
+    prompt = prompt_input.format_map({"instruction": instruction, "input": input})
+    return prompt
+
+
 def check_add_eos(tokenized_inputs, tokenizer):
     if tokenized_inputs.input_ids[0][-1] != tokenizer.eos_token_id:
         for idx in range(len(tokenized_inputs.input_ids)):
