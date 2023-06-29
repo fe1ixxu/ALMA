@@ -222,15 +222,14 @@ def clean_outputstring(output, key_word, logger):
     except:
         logger.info(f"Can not solve the edge case, recover the translation to empty string! The output is {output}")
         return ""
-    
-def load_tokenizer_and_model(data_args, model_args, training_args, logger):
+
+def load_model(data_args, model_args, training_args, tokenizer, logger):
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and (training_args.do_train or training_args.do_predict ) and not training_args.overwrite_output_dir:
         last_checkpoint = training_args.output_dir
         # last_checkpoint = get_last_checkpoint(training_args.output_dir)
     # Set seed before initializing model.
-    set_seed(training_args.seed)
 
     config_kwargs = {
         "cache_dir": model_args.cache_dir,
@@ -252,6 +251,65 @@ def load_tokenizer_and_model(data_args, model_args, training_args, logger):
             config.update_from_string(model_args.config_overrides)
             logger.info(f"New config: {config}")
 
+    ## Model Loading
+    if model_args.model_name_or_path:
+        torch_dtype = (
+            model_args.torch_dtype
+            if model_args.torch_dtype in ["auto", None]
+            else getattr(torch, model_args.torch_dtype)
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_args.model_name_or_path if last_checkpoint is None or model_args.use_peft else last_checkpoint,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+            torch_dtype=torch_dtype,
+            low_cpu_mem_usage=model_args.low_cpu_mem_usage,
+            trust_remote_code=True,
+            # load_in_8bit=model_args.load_in_8bit,
+        )
+        model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
+    else:
+        model = AutoModelForCausalLM.from_config(config)
+        n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
+        logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
+    
+    if "llama" in model_args.model_name_or_path:
+        model.config.pad_token_id = 0
+        model.config.bos_token_id = 1
+        model.config.eos_token_id = 2
+        model.generation_config.pad_token_id = 0
+        model.generation_config.bos_token_id = 1
+        model.generation_config.eos_token_id = 2
+        
+    # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
+    # on a small vocab and want a smaller embedding size, remove this test.
+    embedding_size = model.get_input_embeddings().weight.shape[0]
+    if len(tokenizer) > embedding_size:
+        model.resize_token_embeddings(len(tokenizer))
+
+    ## PEFT: LORA:
+    if model_args.use_peft:
+        if last_checkpoint:
+            config = PeftConfig.from_pretrained(last_checkpoint)
+            model = PeftModel.from_pretrained(model, last_checkpoint)
+        else:
+            config = LoraConfig(
+                r=16,
+                lora_alpha=32,
+                target_modules=["q_proj", "v_proj"],
+                lora_dropout=0.05,
+                bias="none",
+                task_type="CAUSAL_LM"
+            )
+            model = get_peft_model(model, config)
+            
+        print_trainable_parameters(model)
+    return model
+    
+def load_tokenizer(data_args, model_args, training_args, logger):
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
         "use_fast": model_args.use_fast_tokenizer,
@@ -283,32 +341,6 @@ def load_tokenizer_and_model(data_args, model_args, training_args, logger):
         )
 
 
-    ## Model Loading
-    if model_args.model_name_or_path:
-        torch_dtype = (
-            model_args.torch_dtype
-            if model_args.torch_dtype in ["auto", None]
-            else getattr(torch, model_args.torch_dtype)
-        )
-        model = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path if last_checkpoint is None or model_args.use_peft else last_checkpoint,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-            torch_dtype=torch_dtype,
-            low_cpu_mem_usage=model_args.low_cpu_mem_usage,
-            trust_remote_code=True,
-            # load_in_8bit=model_args.load_in_8bit,
-        )
-        model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
-    else:
-        model = AutoModelForCausalLM.from_config(config)
-        n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
-        logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
-
-
     if tokenizer.pad_token == None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -316,33 +348,5 @@ def load_tokenizer_and_model(data_args, model_args, training_args, logger):
         tokenizer.pad_token_id = 0
         tokenizer.bos_token_id = 1
         tokenizer.eos_token_id = 2
-        model.config.pad_token_id = 0
-        model.config.bos_token_id = 1
-        model.config.eos_token_id = 2
-        model.generation_config.pad_token_id = 0
-        model.generation_config.bos_token_id = 1
-        model.generation_config.eos_token_id = 2
-    # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
-    # on a small vocab and want a smaller embedding size, remove this test.
-    embedding_size = model.get_input_embeddings().weight.shape[0]
-    if len(tokenizer) > embedding_size:
-        model.resize_token_embeddings(len(tokenizer))
 
-    ## PEFT: LORA:
-    if model_args.use_peft:
-        if last_checkpoint:
-            config = PeftConfig.from_pretrained(last_checkpoint)
-            model = PeftModel.from_pretrained(model, last_checkpoint)
-        else:
-            config = LoraConfig(
-                r=16,
-                lora_alpha=32,
-                target_modules=["q_proj", "v_proj"],
-                lora_dropout=0.05,
-                bias="none",
-                task_type="CAUSAL_LM"
-            )
-            model = get_peft_model(model, config)
-            
-        print_trainable_parameters(model)
-    return tokenizer, model
+    return tokenizer

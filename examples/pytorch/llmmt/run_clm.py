@@ -63,7 +63,7 @@ from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
 from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
-from utils.utils import load_mmt_dataset, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer_and_model
+from utils.utils import load_mmt_dataset, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -82,7 +82,7 @@ def main():
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
+    
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
@@ -144,8 +144,9 @@ def main():
                 cache_dir=model_args.cache_dir,
                 use_auth_token=True if model_args.use_auth_token else None,
             )
-    ## load tokenizer and model
-    tokenizer, model = load_tokenizer_and_model(data_args, model_args, training_args, logger)
+    ## load tokenizer
+    set_seed(training_args.seed)
+    tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
     # Preprocessing the datasets.
     column_names = []
     if data_args.instruct_data_path:
@@ -168,7 +169,7 @@ def main():
             prompt = prompt_input.format_map(ex) if input != "" else prompt_no_input.format_map(ex)
             prompts.append(prompt)
             inputs.append(prompt + output)
-        model_inputs = tokenizer(inputs, max_length=model.config.max_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True)
         check_add_eos(model_inputs, tokenizer)
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
@@ -198,7 +199,7 @@ def main():
                 prompt = get_prompt(target_lang, source_lang, ex)
                 prompts.append(prompt)
                 inputs.append(prompt + ex[source_lang])
-        model_inputs = tokenizer(inputs, max_length=model.config.max_length - 1, padding=padding, truncation=True, add_special_tokens=True)
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True)
         check_add_eos(model_inputs, tokenizer)
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
@@ -307,6 +308,8 @@ def main():
 
     metric = evaluate.load("sacrebleu")
 
+    ## Load model
+    model = load_model(data_args, model_args, training_args, tokenizer, logger)
     
     collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
     # Initialize our Trainer
