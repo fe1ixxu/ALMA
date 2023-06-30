@@ -168,6 +168,12 @@ def get_first_non_pad_index(input_tensor):
     first_non_pad_index = (input_tensor != -100).nonzero(as_tuple=True)[0][0]
     return first_non_pad_index.item()
 
+def get_first_non_specical_index(input_tensor, special):
+    input_tensor = torch.tensor(input_tensor)
+    assert input_tensor.ndim == 1
+    first_non_pad_index = (input_tensor != special).nonzero(as_tuple=True)[0][0]
+    return first_non_pad_index.item()
+
 def get_prompt(source_lang, target_lang, ex):
     src_fullname = LANG_TABLE[source_lang]
     tgt_fullname = LANG_TABLE[target_lang]
