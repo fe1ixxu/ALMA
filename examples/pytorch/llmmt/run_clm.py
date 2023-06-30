@@ -63,7 +63,7 @@ from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
 from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
-from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
+from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, check_add_eos_right_pad, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -159,7 +159,7 @@ def main():
     #### Decide which prompt used for prompting:
     
     get_prompt_fun = get_prompt_mt_instruct if data_args.instruct_data_path else get_prompt
-    def instruct_tokenize_function(examples):
+    def instruct_tokenize_function_left_pad(examples):
         inputs = []
         prompts = []
         prompt_input, prompt_no_input = INSTRUCT_PROMPT_DICT["prompt_input"], INSTRUCT_PROMPT_DICT["prompt_no_input"]
@@ -188,7 +188,7 @@ def main():
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    def tokenize_function_train_eval(examples):
+    def tokenize_function_train_eval_left_pad(examples):
         inputs = []
         prompts = []
         for ex in examples["translation"]:
@@ -218,7 +218,7 @@ def main():
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    def tokenize_function_train_eval_with_instruct(examples):
+    def tokenize_function_train_eval_right_pad(examples):
         inputs = []
         prompts = []
         for ex in examples["translation"]:
@@ -231,8 +231,8 @@ def main():
                 prompt = get_prompt_fun(target_lang, source_lang, ex)
                 prompts.append(prompt)
                 inputs.append(prompt + ex[source_lang])
-        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True)
-        check_add_eos(model_inputs, tokenizer)
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos_right_pad(model_inputs, tokenizer)
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
@@ -243,8 +243,35 @@ def main():
             if data_args.ignore_prompt_token_for_loss:
                 for idx, prompt in enumerate(prompts):
                     prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
-                    first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
-                    labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
+                    labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    def instruct_tokenize_function_right_pad(examples):
+        inputs = []
+        prompts = []
+        prompt_input, prompt_no_input = INSTRUCT_PROMPT_DICT["prompt_input"], INSTRUCT_PROMPT_DICT["prompt_no_input"]
+        for instruction, output, input in zip(examples['instruction'], examples['output'], examples['input']):
+            ex = {
+                "instruction": instruction,
+                "input": input,
+            }
+            prompt = prompt_input.format_map(ex) if input != "" else prompt_no_input.format_map(ex)
+            prompts.append(prompt)
+            inputs.append(prompt + output)
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos_right_pad(model_inputs, tokenizer)
+        labels = copy.deepcopy(model_inputs)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
+                    labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
@@ -258,9 +285,19 @@ def main():
                 prompt = get_prompt_fun(source_lang, target_lang, ex)
                 prompts.append(prompt)
                 targets.append(prompt + ex[target_lang])
+        original_padding_side = tokenizer.padding_side
+        if original_padding_side != "left":
+            tokenizer.padding_side = "left"
         model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
+        tokenizer.padding_side = original_padding_side
         return model_inputs
 
+    if data_args.right_pad:
+        mmt_train_eval_tok_func = tokenize_function_train_eval_right_pad
+        instruct_tok_func = instruct_tokenize_function_right_pad
+    else:
+        mmt_train_eval_tok_func = tokenize_function_train_eval_left_pad
+        instruct_tok_func = instruct_tokenize_function_left_pad
     if training_args.do_train:
         processed_datasets = []
         if data_args.mmt_data_path:
@@ -271,7 +308,7 @@ def main():
                     train_dataset = train_dataset.select(range(max_train_samples))
                 with training_args.main_process_first(desc="train dataset map pre-processing"):
                     train_dataset = train_dataset.map(
-                        tokenize_function_train_eval,
+                        mmt_train_eval_tok_func,
                         batched=True,
                         num_proc=data_args.preprocessing_num_workers,
                         remove_columns=column_names_mmt,
@@ -286,7 +323,7 @@ def main():
                 train_dataset = train_dataset.select(range(max_train_samples))
             with training_args.main_process_first(desc="train dataset map pre-processing"):
                 train_dataset = train_dataset.map(
-                    instruct_tokenize_function,
+                    instruct_tok_func,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_instruct,
@@ -309,7 +346,7 @@ def main():
                 eval_dataset = eval_dataset.select(range(max_eval_samples))
             with training_args.main_process_first(desc="validation dataset map pre-processing"):
                 eval_dataset = eval_dataset.map(
-                    tokenize_function_train_eval,
+                    mmt_train_eval_tok_func,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
@@ -407,7 +444,7 @@ def main():
                 #     print(decoded_preds[idx])
 
                 with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
-                    suffix = f"\n{LANG_TABLE[tgt_lang]}:" if not data_args.instruct_data_path else "### Response:\n"
+                    suffix = f"\n{LANG_TABLE[tgt_lang]}:" if not data_args.instruct_data_path else "### Response:"
                     for pred in decoded_preds:
                         pred = clean_outputstring(pred, suffix, logger)
                         f.writelines([pred, "\n"])

@@ -168,6 +168,15 @@ def get_first_non_pad_index(input_tensor):
     first_non_pad_index = (input_tensor != -100).nonzero(as_tuple=True)[0][0]
     return first_non_pad_index.item()
 
+def get_first_special_index(input_tensor, special):
+    input_tensor = torch.tensor(input_tensor)
+    assert input_tensor.ndim == 1
+    first_pad_index = (input_tensor == special).nonzero(as_tuple=True)[0]
+    if len(first_pad_index) > 0:
+        return first_pad_index[0].item()
+    else:
+        return -1
+
 def get_first_non_specical_index(input_tensor, special):
     input_tensor = torch.tensor(input_tensor)
     assert input_tensor.ndim == 1
@@ -197,6 +206,14 @@ def check_add_eos(tokenized_inputs, tokenizer):
         for idx in range(len(tokenized_inputs.input_ids)):
             tokenized_inputs.input_ids[idx].append(tokenizer.eos_token_id)
             tokenized_inputs.attention_mask[idx].append(1)
+
+def check_add_eos_right_pad(tokenized_inputs, tokenizer):
+    for idx in range(len(tokenized_inputs.input_ids)):
+        first_non_pad_idx = get_first_special_index(tokenized_inputs.input_ids[idx], tokenizer.pad_token_id)
+        tokenized_inputs.input_ids[idx][first_non_pad_idx] = tokenizer.eos_token_id
+        tokenized_inputs.attention_mask[idx][first_non_pad_idx] = 1
+    
+
 # def check_remove_eos(tokenized_inputs):
 #     if tokenized_inputs.input_ids[0][-1] == tokenizer.eos_token_id:
 #         for idx in range(len(tokenized_inputs.input_ids)):
@@ -299,6 +316,13 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         model.generation_config.pad_token_id = 0
         model.generation_config.bos_token_id = 1
         model.generation_config.eos_token_id = 2
+    elif "mpt" in model_args.model_name_or_path:
+        model.config.pad_token_id = 1
+        model.config.bos_token_id = 0
+        model.config.eos_token_id = 0
+        model.generation_config.pad_token_id = 1
+        model.generation_config.bos_token_id = 0
+        model.generation_config.eos_token_id = 0
         
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.
@@ -340,14 +364,14 @@ def load_tokenizer(data_args, model_args, training_args, logger):
             tokenizer = LlamaTokenizer.from_pretrained(
                 model_args.model_name_or_path, 
                 **tokenizer_kwargs, 
-                padding_side='left', 
+                padding_side='left' if not data_args.right_pad else "right", 
                 add_eos_token=False
             )
         else:
             tokenizer = AutoTokenizer.from_pretrained(
                 model_args.model_name_or_path,
                 **tokenizer_kwargs,
-                padding_side='left', 
+                padding_side='left' if not data_args.right_pad else "right", 
                 add_eos_token=False
             )
     else:
@@ -357,12 +381,19 @@ def load_tokenizer(data_args, model_args, training_args, logger):
         )
 
 
-    if tokenizer.pad_token == None:
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
+    # if tokenizer.pad_token == None:
+    #     tokenizer.pad_token = tokenizer.eos_token
+    #     tokenizer.pad_token_id = tokenizer.eos_token_id
     if "llama" in model_args.model_name_or_path:
         tokenizer.pad_token_id = 0
         tokenizer.bos_token_id = 1
         tokenizer.eos_token_id = 2
+        tokenizer.eos_token = "</s>"
+        tokenizer.bos_token = "<s>"
+    elif "mpt" in model_args.model_name_or_path:
+        tokenizer.pad_token_id = 1
+        tokenizer.bos_token_id = 0
+        tokenizer.eos_token_id = 0
+        tokenizer.pad_token = "<|padding|>"
 
     return tokenizer
