@@ -23,11 +23,12 @@ export WANDB_NAME=${exp_name}
 OUTPUT_DIR=/home/aiscuser/checkpoints/llmmt-pre/${exp_name}
 if [ ${data} == "wmt" ]; then
     DATASET=/home/aiscuser/filtered_wmt22/
-    SUFFIX="--suffix 10000"
+    SUFFIX="--suffix 100000"
 else
     DATASET=/home/aiscuser/flores200/
 fi
-
+# export NCCL_DEBUG=WARN
+# --config_file deepspeed_train_config.yaml
 accelerate launch --config_file deepspeed_train_config.yaml \
      run_clm.py \
     --model_name_or_path decapoda-research/llama-7b-hf \
@@ -65,6 +66,30 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --num_beams 5 \
     --report_to wandb \
     ${SUFFIX}
+
+
+for pair in ${pairs//,/ }; do
+    src=$(echo ${pair} | cut -d "-" -f 1)
+    tgt=$(echo ${pair} | cut -d "-" -f 2)
+    TOK="13a"
+    if [ ${tgt} == "zh" ]; then
+        TOK="zh"
+    elif [ ${tgt} == "ja" ]; then
+        TOK="ja-mecab"
+    fi
+    echo "--------------------Results for ${pair}-------------------------------------"
+    src_path=/home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}
+    tgt_path=/home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${tgt}
+    output_path=${OUTPUT_DIR}/test-${src}-${tgt}
+    if [ ${src} == "uk" ]; then
+        expand -t 4 ${tgt_path} > ${output_path}-tmp-uk-en.gold
+        SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${output_path}-tmp-uk-en.gold
+        rm ${output_path}-tmp-uk-en.gold
+    else
+        SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${tgt_path}
+    fi
+    
+done
 
 
 # --use_ul2 \

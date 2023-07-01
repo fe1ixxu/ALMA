@@ -211,11 +211,15 @@ class DataCollatorForUL2(DataCollatorMixin):
             new_batch['input_ids'][x_denoising_idx] = torch.stack(_input_ids)
             new_batch['labels'][x_denoising_idx] = torch.stack(_labels)
 
-        new_batch["attention_mask"] = torch.where(
-            new_batch["labels"] == self.label_pad_token_id,
-            0,
-            torch.ones_like(new_batch["labels"])
-        )
+        # new_batch["attention_mask"] = torch.where(
+        #     new_batch["labels"] == self.label_pad_token_id,
+        #     0,
+        #     torch.ones_like(new_batch["labels"])
+        # )
+        ## Override labels
+        if "labels" in batch:
+            new_batch["labels"] = batch["labels"]
+        new_batch["attention_mask"] = batch["attention_mask"]
 
         return new_batch 
 
