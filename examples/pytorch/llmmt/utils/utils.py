@@ -272,7 +272,8 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
         "trust_remote_code": True,
-        "max_length": data_args.max_source_length + data_args.max_new_tokens
+        "max_length": data_args.max_source_length + data_args.max_new_tokens,
+        "norm_type": "low_precision_rmsnorm",
     }
 
     if model_args.config_name:
