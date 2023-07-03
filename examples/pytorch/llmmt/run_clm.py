@@ -428,7 +428,8 @@ def main():
                 test_dataset=test_dataset, 
                 max_new_tokens=data_args.max_new_tokens, 
                 num_beams=data_args.num_beams, 
-                metric_key_prefix="test"
+                metric_key_prefix="test",
+                use_cache=True,
             )
 
             # Replace -100s used for padding as we can't decode them

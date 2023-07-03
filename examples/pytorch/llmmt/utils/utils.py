@@ -120,10 +120,11 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
         second_lang = "en"
         pair_dir = first_lang + second_lang
 
-        if first_lang in ["de", "cs", "ru"] or second_lang in ["de", "cs", "ru"]:
-            h_suffix = f"-{10000}" if data_args.suffix else ""
-        else:
-            h_suffix = f"-{data_args.suffix}" if data_args.suffix else ""
+        # if first_lang in ["de", "cs", "ru"] or second_lang in ["de", "cs", "ru"]:
+        #     h_suffix = f"-{10000}" if data_args.suffix else ""
+        # else:
+        #     h_suffix = f"-{data_args.suffix}" if data_args.suffix else ""
+            
         h_suffix = f"-{data_args.suffix}" if data_args.suffix else ""
         train_file = os.path.join(data_args.mmt_data_path, pair_dir, f"train.{first_lang}-{second_lang}{h_suffix}.json")
         valid_file = os.path.join(data_args.mmt_data_path, pair_dir, f"valid.{first_lang}-{second_lang}.json")
@@ -308,6 +309,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             # load_in_8bit=model_args.load_in_8bit,
         )
         model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
+        model.generation_config.use_cache = True
     else:
         model = AutoModelForCausalLM.from_config(config)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
@@ -324,7 +326,6 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         model.config.pad_token_id = 1
         model.config.bos_token_id = 0
         model.config.eos_token_id = 0
-        model.config.attn_config["attn_impl"] = "flash"
         model.generation_config.pad_token_id = 1
         model.generation_config.bos_token_id = 0
         model.generation_config.eos_token_id = 0
