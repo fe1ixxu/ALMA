@@ -181,7 +181,7 @@ class DataCollatorForUL2(DataCollatorMixin):
                 label = np.concatenate(([self.label_pad_token_id] * sub_input_len, label))
                 new_batch['attention_mask'][r_denoising_idx_num[idx]][:len(label)] = 1
                 if len(label) > max_length:
-                    label = label[: max_length]
+                    label = torch.from_numpy(label[: max_length])
                 else:
                     diff = max_length - len(label)
                     label = F.pad(torch.from_numpy(label), (0, diff), 'constant', self.label_pad_token_id)
@@ -256,7 +256,7 @@ class DataCollatorForUL2(DataCollatorMixin):
                 label = np.concatenate(([self.label_pad_token_id] * sub_input_len, label))
                 new_batch['attention_mask'][x_denoising_idx_num[idx]][:len(label)] = 1
                 if len(label) > max_length:
-                    label = label[: max_length]
+                    label = torch.from_numpy(label[: max_length])
                 else:
                     diff = max_length - len(label)
                     label = F.pad(torch.from_numpy(label), (0, diff), 'constant', self.label_pad_token_id)
