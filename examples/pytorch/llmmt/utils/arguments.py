@@ -220,6 +220,14 @@ class DataTrainingArguments:
         },
     )
 
+    use_prefix_lm: bool = field(
+        default=False,
+        metadata={
+            "help": "Use prefix language model, especially for models like MPT."
+        },
+    )
+
+
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
     # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})
 

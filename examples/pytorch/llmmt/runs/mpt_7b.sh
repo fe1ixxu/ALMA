@@ -37,11 +37,11 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --load_best_model_at_end \
     --low_cpu_mem_usage \
     --fp16 \
-    --learning_rate 2e-5 \
+    --learning_rate 1e-4 \
     --weight_decay 0.01 \
     --gradient_accumulation_steps 4 \
     --lr_scheduler_type inverse_sqrt \
-    --warmup_ratio 0.05 \
+    --warmup_ratio 0.01 \
     --ignore_pad_token_for_loss \
     --ignore_prompt_token_for_loss \
     --per_device_train_batch_size 4 \
@@ -54,7 +54,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --logging_strategy steps \
     --logging_steps 0.05 \
     --output_dir ${OUTPUT_DIR} \
-    --num_train_epochs 3 \
+    --num_train_epochs 5 \
     --predict_with_generate \
     --prediction_loss_only \
     --max_new_tokens 256 \

@@ -29,7 +29,6 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --model_name_or_path mosaicml/mpt-7b \
     --mmt_data_path  ${DATASET} \
     --suffix ${suffix} \
-    --use_ul2 \
     --right_pad \
     --use_prefix_lm \
     --do_train \
@@ -43,7 +42,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --weight_decay 0.01 \
     --gradient_accumulation_steps 4 \
     --lr_scheduler_type inverse_sqrt \
-    --warmup_ratio 0.05 \
+    --warmup_ratio 0.01 \
     --ignore_pad_token_for_loss \
     --ignore_prompt_token_for_loss \
     --per_device_train_batch_size 4 \

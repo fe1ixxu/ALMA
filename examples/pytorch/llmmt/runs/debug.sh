@@ -15,7 +15,7 @@
 ########################################
 ########################################
 exp_name=${1:-""}
-suffix=${2:-"1000"}
+suffix=${2:-"10000"}
 pairs=${3:-"en-de,en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
 export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 export WANDB_PROJECT=LLMMT-pre
@@ -26,15 +26,16 @@ DATASET=/home/aiscuser/filtered_wmt22/
 
 accelerate launch --config_file deepspeed_train_config.yaml \
      run_clm.py \
-    --model_name_or_path mosaicml/mpt-7b \
+    --model_name_or_path facebook/opt-125m \
     --mmt_data_path  ${DATASET} \
     --suffix ${suffix} \
     --right_pad \
+    --use_ul2 \
+    --use_prefix_lm \
     --do_train \
     --do_eval \
     --do_predict \
     --language_pairs ${pairs} \
-    --load_best_model_at_end \
     --low_cpu_mem_usage \
     --fp16 \
     --learning_rate 2e-5 \
@@ -48,9 +49,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --per_device_eval_batch_size 4 \
     --evaluation_strategy steps \
     --eval_steps 0.05 \
-    --save_strategy steps \
-    --save_steps 0.05 \
-    --save_total_limit 1 \
+    --save_strategy no \
     --logging_strategy steps \
     --logging_steps 0.05 \
     --output_dir ${OUTPUT_DIR} \
@@ -64,6 +63,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --num_beams 5 \
     --report_to none
 
+# exit
 source /home/aiscuser/anaconda3/bin/activate comet
 for pair in ${pairs//,/ }; do
     src=$(echo ${pair} | cut -d "-" -f 1)
@@ -103,7 +103,7 @@ done
 
 # --use_ul2 \
 #### Possible fields may be needed
-
+    # --load_best_model_at_end \
     # --overwrite_cache \
     # facebook/opt-125m
     # SACREBLEU_FORMAT=text sacrebleu -tok 13a -w 2 /home/aiscuser/flores200/llama-13b/test-en-de </home/aiscuser/gpt-MT/evaluation/testset/wmt-testset/ende/test.en-de.de

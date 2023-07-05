@@ -14,7 +14,7 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --max_source_length 256 \
     --fp16 \
     --seed 42 \
-    --num_beams 1 \
+    --num_beams 5 \
     --overwrite_output_dir 
 # exit
 source /home/aiscuser/anaconda3/bin/activate comet

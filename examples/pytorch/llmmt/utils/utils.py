@@ -296,6 +296,8 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             logger.info(f"Overriding config: {model_args.config_overrides}")
             config.update_from_string(model_args.config_overrides)
             logger.info(f"New config: {config}")
+    if "mpt" in model_args.model_name_or_path:
+        config.attn_config["prefix_lm"] = data_args.use_prefix_lm
 
     ## Model Loading
     if model_args.model_name_or_path:

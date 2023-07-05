@@ -236,6 +236,10 @@ def main():
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
+        if data_args.use_prefix_lm:
+            assert data_args.ignore_prompt_token_for_loss
+            model_inputs["prefix_mask"] = []
+
         if padding == "max_length" and data_args.ignore_pad_token_for_loss:
             labels["input_ids"] = [
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
@@ -244,8 +248,50 @@ def main():
                 for idx, prompt in enumerate(prompts):
                     prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
                     labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
+                    if data_args.use_prefix_lm:
+                        prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
+                        prefix_mask[: len(prompt)] = [1] * len(prompt)
+                        model_inputs["prefix_mask"].append(prefix_mask)
+                    
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
+
+    def tokenize_function_eval_right_pad(examples):
+        inputs = []
+        prompts = []
+        for ex in examples["translation"]:
+            source_lang, target_lang = list(ex.keys())
+            if f"{source_lang}-{target_lang}" in pairs:
+                prompt = get_prompt_fun(source_lang, target_lang, ex)
+                prompts.append(prompt)
+                inputs.append(prompt + ex[target_lang])
+            if f"{target_lang}-{source_lang}" in pairs:
+                prompt = get_prompt_fun(target_lang, source_lang, ex)
+                prompts.append(prompt)
+                inputs.append(prompt + ex[source_lang])
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens, padding=padding, truncation=True, add_special_tokens=True)
+        check_add_eos_right_pad(model_inputs, tokenizer)
+        labels = copy.deepcopy(model_inputs)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if data_args.use_prefix_lm:
+            assert data_args.ignore_prompt_token_for_loss
+            model_inputs["prefix_mask"] = []
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
+                    labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
+                    if data_args.use_prefix_lm:
+                        prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
+                        model_inputs["prefix_mask"].append(prefix_mask)
+                    
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
 
     def instruct_tokenize_function_right_pad(examples):
         inputs = []
@@ -264,6 +310,9 @@ def main():
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
+        if data_args.use_prefix_lm:
+            assert data_args.ignore_prompt_token_for_loss
+            model_inputs["prefix_mask"] = []
         if padding == "max_length" and data_args.ignore_pad_token_for_loss:
             labels["input_ids"] = [
                 [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
@@ -272,6 +321,10 @@ def main():
                 for idx, prompt in enumerate(prompts):
                     prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
                     labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
+                    if data_args.use_prefix_lm:
+                        prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
+                        prefix_mask[: len(prompt)] = [1] * len(prompt)
+                        model_inputs["prefix_mask"].append(prefix_mask)
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
@@ -290,14 +343,21 @@ def main():
             tokenizer.padding_side = "left"
         model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
         tokenizer.padding_side = original_padding_side
+        if data_args.use_prefix_lm:
+            model_inputs["prefix_mask"] = []
+            for idx, prompt in enumerate(prompts):
+                prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
+                model_inputs["prefix_mask"].append(prefix_mask)
         return model_inputs
 
     if data_args.right_pad:
         mmt_train_eval_tok_func = tokenize_function_train_eval_right_pad
         instruct_tok_func = instruct_tokenize_function_right_pad
+        mmt_eval_tok_func = tokenize_function_eval_right_pad
     else:
         mmt_train_eval_tok_func = tokenize_function_train_eval_left_pad
         instruct_tok_func = instruct_tokenize_function_left_pad
+        mmt_eval_tok_func = tokenize_function_train_eval_right_pad
     if training_args.do_train:
         processed_datasets = []
         if data_args.mmt_data_path:
@@ -346,7 +406,7 @@ def main():
                 eval_dataset = eval_dataset.select(range(max_eval_samples))
             with training_args.main_process_first(desc="validation dataset map pre-processing"):
                 eval_dataset = eval_dataset.map(
-                    mmt_train_eval_tok_func,
+                    mmt_eval_tok_func,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
@@ -380,6 +440,8 @@ def main():
     ## Load model
     model = load_model(data_args, model_args, training_args, tokenizer, logger)
     
+    if data_args.use_ul2:
+        assert data_args.use_prefix_lm, "Must enable use prefix language model"
     collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
