@@ -11,9 +11,10 @@ from transformers.data.data_collator import (
     DataCollatorMixin,
     _torch_collate_batch,
 )
+import copy
 
 from transformers import default_data_collator
-from .utils import get_first_non_specical_index
+from .utils import get_first_non_specical_index, get_first_special_index, get_first_special_index_batch
 
 def random_spans_noise_mask(length, mean_noise_span_length, noise_density):
     """
@@ -93,7 +94,7 @@ class DataCollatorForUL2(DataCollatorMixin):
     r_probability: float = 0.25
     r_denoising_config: Tuple[Tuple] = ((3, 0.15),)
     s_denoising: bool = True
-    s_probability: float = 0.50
+    s_probability: float = 0.5
     x_denoising: bool = True
     x_probability: float = 0.25
     x_denoising_config: Tuple[Tuple] = ((32, 0.5, 0.35), (64, 0.2, 0.70))
@@ -119,7 +120,9 @@ class DataCollatorForUL2(DataCollatorMixin):
         return random.choices(self.total_task,weights=self.task_prob, k=batch_size)
 
     def torch_call(self, examples: List[Union[List[int], Any, Dict[str, Any]]]) -> Dict[str, Any]:
-        if torch.rand(1) < 0.35 or not self.model.training:
+        torch.set_printoptions(threshold=10_000)
+        np.set_printoptions(threshold=10_000)
+        if torch.rand(1) < -1 or not self.model.training:
             return default_data_collator(examples)
 
         # Handle dict or lists with proper padding and conversion to tensor.
@@ -137,6 +140,7 @@ class DataCollatorForUL2(DataCollatorMixin):
             }
         max_length = batch['input_ids'].shape[-1]
 
+        # new_batch = copy.deepcopy(batch)
         new_batch = {
             "input_ids": torch.zeros(batch['input_ids'].shape, dtype=torch.long),
             "labels": torch.zeros(batch['input_ids'].shape, dtype=torch.long),
@@ -146,6 +150,7 @@ class DataCollatorForUL2(DataCollatorMixin):
         _, expanded_length = batch['input_ids'].shape
         input_ids = batch["input_ids"]
         r_denoising_idx = task_type == 0
+        r_denoising_idx_num = torch.where(r_denoising_idx)[0]
         if r_denoising_idx.any():
             mask_indices = None
             sub_input_ids = input_ids[r_denoising_idx]
@@ -159,11 +164,31 @@ class DataCollatorForUL2(DataCollatorMixin):
                     mask_indices = _mask_indices
                 else:
                     mask_indices = mask_indices | _mask_indices
-            _sub_input_ids = torch.where(torch.from_numpy(mask_indices), self.pad_token_id, sub_input_ids)
-            _labels = torch.where(torch.from_numpy(mask_indices), sub_input_ids, self.pad_token_id)
-            _labels[ _labels == self.pad_token_id ] = self.label_pad_token_id
-            new_batch['input_ids'][r_denoising_idx] = _sub_input_ids.long()
-            new_batch['labels'][r_denoising_idx] = _labels.long()
+
+            valid_lengths = get_first_special_index_batch(sub_input_ids, self.pad_token_id)
+            for idx, valid_len in enumerate(valid_lengths):
+                mask_indices[idx, valid_len:] = False
+            input_ids_sentinel = self.create_sentinel_ids(mask_indices.astype(np.int8))
+            labels_mask = ~mask_indices
+            labels_sentinel = self.create_sentinel_ids(labels_mask.astype(np.int8))
+            _sub_input_ids = self.filter_input_ids(sub_input_ids, input_ids_sentinel)
+            _labels = self.filter_input_ids(sub_input_ids, labels_sentinel)
+            
+            labels = []
+            for idx, _label in enumerate(_labels):
+                label = _label[_label != self.pad_token_id]
+                sub_input_len =  len(_sub_input_ids[idx][_sub_input_ids[idx] != self.pad_token_id])
+                label = np.concatenate(([self.label_pad_token_id] * sub_input_len, label))
+                new_batch['attention_mask'][r_denoising_idx_num[idx]][:len(label)] = 1
+                if len(label) > max_length:
+                    label = label[: max_length]
+                else:
+                    diff = max_length - len(label)
+                    label = F.pad(torch.from_numpy(label), (0, diff), 'constant', self.label_pad_token_id)
+                labels.append(label)
+            labels = torch.stack(labels)
+            new_batch['input_ids'][r_denoising_idx] = torch.from_numpy(_sub_input_ids).long()
+            new_batch['labels'][r_denoising_idx] = labels.long()
 
         s_denoising_idx = task_type == 1
         if s_denoising_idx.any():
@@ -171,56 +196,84 @@ class DataCollatorForUL2(DataCollatorMixin):
             _labels = []
             _input_ids = []
             for input_id, len_ in zip(sub_input_ids, lengths[s_denoising_idx]):
-                idx = get_first_non_specical_index(input_id, self.pad_token_id)
-                valid_len = len_ - idx - 1
-                split = max(valid_len//2, 2) + idx
-                diff = expanded_length - split
-                _input_ids.append(F.pad(input_id[:split], (0, diff), 'constant', self.pad_token_id))
-                past_seq = input_id[split:]
-                if past_seq[-1] != self.tokenizer.eos_token_id:
-                    past_seq[-1] = self.tokenizer.eos_token_id
-                _labels.append(F.pad(past_seq, (split, 0), 'constant', self.pad_token_id))
+                if self.tokenizer.padding_side == "left":
+                    idx = get_first_non_specical_index(input_id, self.pad_token_id)
+                    valid_len = len_ - idx - 1
+                    split = max(valid_len//2, 2) + idx
+                    diff = expanded_length - split
+                    _input_ids.append(F.pad(input_id[:split], (0, diff), 'constant', self.pad_token_id))
+                    past_seq = input_id[split:]
+                    if past_seq[-1] != self.tokenizer.eos_token_id:
+                        past_seq[-1] = self.tokenizer.eos_token_id
+                    # _labels.append(F.pad(past_seq, (split, 0), 'constant', self.pad_token_id))
+                else:
+                    valid_len = get_first_special_index(input_id, self.pad_token_id)
+                    split = max(valid_len//2, 2)
+                    diff = expanded_length - split
+                    _input_ids.append(F.pad(input_id[:split], (0, diff), 'constant', self.pad_token_id))
+                    past_seq = input_id[split:]
+                    past_seq = torch.where(past_seq == self.pad_token_id, self.label_pad_token_id, past_seq)
+                    _labels.append(F.pad(past_seq, (split, 0), 'constant', self.label_pad_token_id))
 
             new_batch['input_ids'][s_denoising_idx] = torch.stack(_input_ids)
             new_batch['labels'][s_denoising_idx] = torch.stack(_labels)
+            new_batch['attention_mask'][s_denoising_idx] = batch['attention_mask'][s_denoising_idx]
 
 
         x_denoising_idx = task_type == 2
+        x_denoising_idx_num = torch.where(x_denoising_idx)[0]
         if x_denoising_idx.any():
             sub_input_ids = input_ids[x_denoising_idx]
-            _labels = []
-            _input_ids = []
-            for input_id, len_ in zip(sub_input_ids, lengths[x_denoising_idx]):
-                mask_indices = None
-                idx = get_first_non_specical_index(input_id, self.pad_token_id)
-                valid_len = len_ - idx - 1
+            mask_indices = []
+            valid_lengths = get_first_special_index_batch(sub_input_ids, self.pad_token_id)
+            for len_, valid_len in zip(lengths[x_denoising_idx], valid_lengths):
+                mask_index = None
+                # idx = get_first_non_specical_index(input_id, self.pad_token_id)
+                # valid_len = len_ - idx - 1
                 for (mean_span, noise, ratio) in self.x_denoising_config:
                     mean_span = min(mean_span, valid_len * ratio)
-                    _mask_indices = np.array(
+                    _mask_index = np.array(
                         random_spans_noise_mask(expanded_length, mean_span, noise)
                     )
-                    if mask_indices is None:
-                        mask_indices = _mask_indices
+                    if mask_index is None:
+                        mask_index = _mask_index
                     else:
-                        mask_indices = mask_indices | _mask_indices
-                _input_ids.append(torch.where(torch.from_numpy(mask_indices), self.pad_token_id, input_id).long())
-                _label = torch.where(torch.from_numpy(mask_indices), input_id, self.pad_token_id).long()
-                _label[ _label == self.pad_token_id ] = self.label_pad_token_id
-                _labels.append(_label)
-                
-            new_batch['input_ids'][x_denoising_idx] = torch.stack(_input_ids)
-            new_batch['labels'][x_denoising_idx] = torch.stack(_labels)
+                        mask_index = mask_index | _mask_index
+                mask_index[valid_len:] = False
+                mask_indices.append(mask_index[np.newaxis,:])
 
-        # new_batch["attention_mask"] = torch.where(
-        #     new_batch["labels"] == self.label_pad_token_id,
-        #     0,
-        #     torch.ones_like(new_batch["labels"])
-        # )
+            mask_indices = np.concatenate(mask_indices, axis=0)
+            input_ids_sentinel = self.create_sentinel_ids(mask_indices.astype(np.int8))
+            labels_mask = ~mask_indices
+            labels_sentinel = self.create_sentinel_ids(labels_mask.astype(np.int8))
+            _sub_input_ids = self.filter_input_ids(sub_input_ids, input_ids_sentinel)
+            _labels = self.filter_input_ids(sub_input_ids, labels_sentinel)
+
+            labels = []
+            for idx, _label in enumerate(_labels):
+                label = _label[_label != self.pad_token_id]
+                sub_input_len =  len(_sub_input_ids[idx][_sub_input_ids[idx] != self.pad_token_id])
+                label = np.concatenate(([self.label_pad_token_id] * sub_input_len, label))
+                new_batch['attention_mask'][x_denoising_idx_num[idx]][:len(label)] = 1
+                if len(label) > max_length:
+                    label = label[: max_length]
+                else:
+                    diff = max_length - len(label)
+                    label = F.pad(torch.from_numpy(label), (0, diff), 'constant', self.label_pad_token_id)
+                labels.append(label)
+            labels = torch.stack(labels)
+            
+            new_batch['input_ids'][x_denoising_idx] = torch.from_numpy(_sub_input_ids).long()
+            new_batch['labels'][x_denoising_idx] = labels.long()
+
+        # if torch.cuda.current_device() == 0:
+        #     print(new_batch)
+        # exit(0)
         ## Override labels
-        if "labels" in batch:
-            new_batch["labels"] = batch["labels"]
-        new_batch["attention_mask"] = batch["attention_mask"]
-
+        # if "labels" in batch:
+        #     new_batch["labels"] = batch["labels"]
+        # new_batch["attention_mask"] = batch["attention_mask"]
+        
         return new_batch 
 
 
@@ -237,7 +290,7 @@ class DataCollatorForUL2(DataCollatorMixin):
         for row in input_ids_full:
             collapsed_id = row[row >= 0]
             diff = len(row) - len(collapsed_id)
-            collapsed_id = np.pad(collapsed_id, (0, diff), 'constant')
+            collapsed_id = np.pad(collapsed_id, (0, diff), 'constant', constant_values=self.pad_token_id)
             input_ids.append(collapsed_id)
         return np.array(input_ids)
 

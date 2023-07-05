@@ -181,6 +181,14 @@ def get_first_special_index(input_tensor, special):
     else:
         return -1
 
+def get_first_special_index_batch(input_tensor, special):
+    input_tensor = torch.tensor(input_tensor)
+    assert input_tensor.ndim == 2
+    matches = input_tensor.eq(special).long()
+    indices = matches.argmax(dim=1)
+    indices[matches.sum(dim=1) == 0] = -1
+    return indices 
+
 def get_first_non_specical_index(input_tensor, special):
     input_tensor = torch.tensor(input_tensor)
     assert input_tensor.ndim == 1
@@ -274,7 +282,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         "use_auth_token": True if model_args.use_auth_token else None,
         "trust_remote_code": True,
         "max_length": data_args.max_source_length + data_args.max_new_tokens,
-        "norm_type": "low_precision_rmsnorm",
+        # "norm_type": "low_precision_rmsnorm",
     }
 
     if model_args.config_name:
@@ -309,7 +317,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             # load_in_8bit=model_args.load_in_8bit,
         )
         model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
-        model.generation_config.use_cache = True
+        model.generation_config.use_cache = True        
     else:
         model = AutoModelForCausalLM.from_config(config)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
@@ -329,6 +337,9 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         model.generation_config.pad_token_id = 1
         model.generation_config.bos_token_id = 0
         model.generation_config.eos_token_id = 0
+        for name, param in model.named_parameters():
+            if "norm" in name:
+                param.requires_grad = False
         
     # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
     # on a small vocab and want a smaller embedding size, remove this test.

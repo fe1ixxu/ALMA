@@ -1,9 +1,10 @@
-TEST_PAIRS="en-de,en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"
-OUTPUT_DIR=/home/aiscuser/checkpoints/llmmt-pre/lla-7b-mmt-instruct-10k
+TEST_PAIRS=${1:-"en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
+OUTPUT_DIR=/mnt/sdrgmainz01wus2/t-haoranxu/results/zero-shot-llmmt-beam1/mpt-7b/
 accelerate launch --config_file deepspeed_eval_config.yaml \
     run_clm.py \
-    --model_name_or_path decapoda-research/llama-7b-hf \
+    --model_name_or_path mosaicml/mpt-7b \
     --do_predict \
+    --low_cpu_mem_usage \
     --language_pairs ${TEST_PAIRS} \
     --mmt_data_path /home/aiscuser/filtered_wmt22/ \
     --per_device_eval_batch_size 4 \
@@ -13,9 +14,10 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --max_source_length 256 \
     --fp16 \
     --seed 42 \
-    --num_beams 5 \
+    --num_beams 1 \
     --overwrite_output_dir 
-
+# exit
+source /home/aiscuser/anaconda3/bin/activate comet
 for pair in ${TEST_PAIRS//,/ }; do
     src=$(echo ${pair} | cut -d "-" -f 1)
     tgt=$(echo ${pair} | cut -d "-" -f 2)
@@ -31,10 +33,21 @@ for pair in ${TEST_PAIRS//,/ }; do
     output_path=${OUTPUT_DIR}/test-${src}-${tgt}
     if [ ${src} == "uk" ]; then
         expand -t 4 ${tgt_path} > ${output_path}-tmp-uk-en.gold
-        SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${output_path}-tmp-uk-en.gold
+        SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${output_path}-tmp-uk-en.gold > ${output_path}.bleu
         rm ${output_path}-tmp-uk-en.gold
     else
-        SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${tgt_path}
-    fi
-    
+        SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${tgt_path} > ${output_path}.bleu
+    fi 
+    cat ${output_path}.bleu
+    comet-score -s ${src_path} -t ${output_path} -r ${tgt_path} --batch_size 256 > ${output_path}.comet 
+    tail -n 1 ${output_path}.comet
+done
+
+for pair in ${TEST_PAIRS//,/ }; do
+    src=$(echo ${pair} | cut -d "-" -f 1)
+    tgt=$(echo ${pair} | cut -d "-" -f 2)
+    echo "---------------------------${src}-${tgt}-------------------------------"
+    output_path=${OUTPUT_DIR}/test-${src}-${tgt}
+    cat ${output_path}.bleu
+    tail -n 1 ${output_path}.comet
 done
