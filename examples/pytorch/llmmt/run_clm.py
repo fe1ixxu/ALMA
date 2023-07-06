@@ -373,7 +373,7 @@ def main():
                         batched=True,
                         num_proc=data_args.preprocessing_num_workers,
                         remove_columns=column_names_mmt,
-                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path}-train-mmt-{lg_pair}-{data_args.suffix}",
+                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.suffix}",
                         load_from_cache_file=not data_args.overwrite_cache,
                         desc="Running tokenizer on MMT train dataset",
                     )
@@ -412,7 +412,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path}-valid-mmt-{lg_pair}-{data_args.suffix}",
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-valid-mmt-{lg_pair}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer valid dataset",
                 )
@@ -433,7 +433,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=[lg_pair],
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path}-test-mmt-{lg_pair}-{data_args.suffix}",
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-test-mmt-{lg_pair}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer test dataset",
                 )
