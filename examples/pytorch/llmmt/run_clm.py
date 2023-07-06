@@ -287,6 +287,7 @@ def main():
                     labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
                     if data_args.use_prefix_lm:
                         prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
+                        prefix_mask[: len(prompt)] = [1] * len(prompt)
                         model_inputs["prefix_mask"].append(prefix_mask)
                     
         model_inputs["labels"] = labels["input_ids"]
@@ -346,7 +347,7 @@ def main():
         if data_args.use_prefix_lm:
             model_inputs["prefix_mask"] = []
             for idx, prompt in enumerate(prompts):
-                prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
+                prefix_mask = model_inputs["attention_mask"][idx]
                 model_inputs["prefix_mask"].append(prefix_mask)
         return model_inputs
 
@@ -372,6 +373,7 @@ def main():
                         batched=True,
                         num_proc=data_args.preprocessing_num_workers,
                         remove_columns=column_names_mmt,
+                        cache_file_name=f"train-mmt-{lg_pair}-{data_args.suffix}",
                         load_from_cache_file=not data_args.overwrite_cache,
                         desc="Running tokenizer on MMT train dataset",
                     )
@@ -410,6 +412,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
+                    cache_file_name=f"valid-mmt-{lg_pair}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer valid dataset",
                 )
@@ -430,6 +433,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=[lg_pair],
+                    cache_file_name=f"test-mmt-{lg_pair}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer test dataset",
                 )

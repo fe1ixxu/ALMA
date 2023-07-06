@@ -39,7 +39,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --load_best_model_at_end \
     --low_cpu_mem_usage \
     --fp16 \
-    --learning_rate 1e-4 \
+    --learning_rate 2e-5 \
     --weight_decay 0.01 \
     --gradient_accumulation_steps 4 \
     --lr_scheduler_type inverse_sqrt \
