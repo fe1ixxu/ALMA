@@ -55,7 +55,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --logging_strategy steps \
     --logging_steps 0.05 \
     --output_dir ${OUTPUT_DIR} \
-    --num_train_epochs 2 \
+    --num_train_epochs 3 \
     --predict_with_generate \
     --prediction_loss_only \
     --max_new_tokens 256 \
