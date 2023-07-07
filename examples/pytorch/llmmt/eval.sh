@@ -1,5 +1,6 @@
 TEST_PAIRS=${1:-"en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
 OUTPUT_DIR=/mnt/sdrgmainz01wus2/t-haoranxu/results/zero-shot-llmmt-beam5/mpt-7b-bzeval/
+HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 accelerate launch --config_file deepspeed_eval_config.yaml \
     run_clm.py \
     --model_name_or_path mosaicml/mpt-7b \
