@@ -97,7 +97,7 @@ class DataCollatorForUL2(DataCollatorMixin):
     s_probability: float = 0.5
     x_denoising: bool = True
     x_probability: float = 0.25
-    x_denoising_config: Tuple[Tuple] = ((32, 0.5, 0.5))
+    x_denoising_config: Tuple[Tuple] = ((32, 0.5, 0.5),)
     pad_to_multiple_of: Optional[int] = None
     tf_experimental_compile: bool = False
     return_tensors: str = "pt"
