@@ -115,6 +115,7 @@ class DataTrainingArguments:
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )
     mmt_data_path: Optional[str] = field(default=None, metadata={"help": "The input MMT training data path."})
+    mono_data_path: Optional[str] = field(default=None, metadata={"help": "The input mono data training data path."})
     instruct_data_path: Optional[str] = field(default=None, metadata={"help": "The input instruct training data path, a json file."})
     max_train_samples: Optional[int] = field(
         default=None,

@@ -143,14 +143,27 @@ def main():
                 data_files=data_args.instruct_data_path,
                 cache_dir=model_args.cache_dir,
                 use_auth_token=True if model_args.use_auth_token else None,
+                streaming=data_args.streaming,
+            )
+        if data_args.mono_data_path:
+            train_mono_raw_data = load_dataset(
+                "json",
+                data_files=data_args.mono_data_path,
+                cache_dir=model_args.cache_dir,
+                use_auth_token=True if model_args.use_auth_token else None,
+                streaming=data_args.streaming,
             )
     ## load tokenizer
     set_seed(training_args.seed)
     tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
+    if data_args.use_ul2:
+        assert data_args.use_prefix_lm, "Must enable use prefix language model"
+    ## Load model
+    model = load_model(data_args, model_args, training_args, tokenizer, logger)
     # Preprocessing the datasets.
     if data_args.instruct_data_path:
         column_names_instruct = ["instruction", "output", "input"]
-    if data_args.mmt_data_path:
+    if data_args.mmt_data_path or data_args.mono_data_path:
         column_names_mmt = ["translation"]
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
@@ -256,41 +269,35 @@ def main():
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    def tokenize_function_eval_right_pad(examples):
-        inputs = []
-        prompts = []
-        for ex in examples["translation"]:
-            source_lang, target_lang = list(ex.keys())
-            if f"{source_lang}-{target_lang}" in pairs:
-                prompt = get_prompt_fun(source_lang, target_lang, ex)
-                prompts.append(prompt)
-                inputs.append(prompt + ex[target_lang])
-            if f"{target_lang}-{source_lang}" in pairs:
-                prompt = get_prompt_fun(target_lang, source_lang, ex)
-                prompts.append(prompt)
-                inputs.append(prompt + ex[source_lang])
-        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens, padding=padding, truncation=True, add_special_tokens=True)
-        check_add_eos_right_pad(model_inputs, tokenizer)
-        labels = copy.deepcopy(model_inputs)
-        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
-        # padding in the loss.
+    def tokenize_function_train_mono(examples):
         if data_args.use_prefix_lm:
-            assert data_args.ignore_prompt_token_for_loss
-            model_inputs["prefix_mask"] = []
-        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
-            labels["input_ids"] = [
-                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
-            ]
-            if data_args.ignore_prompt_token_for_loss:
-                for idx, prompt in enumerate(prompts):
-                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
-                    labels["input_ids"][idx][: len(prompt)] = [-100] * len(prompt) 
-                    if data_args.use_prefix_lm:
-                        prefix_mask = [0] * len(model_inputs["attention_mask"][idx])
-                        prefix_mask[: len(prompt)] = [1] * len(prompt)
-                        model_inputs["prefix_mask"].append(prefix_mask)
-                    
-        model_inputs["labels"] = labels["input_ids"]
+            inputs = {"input_ids": [], "attention_mask": [], "prefix_mask": []}      
+        else:
+            inputs = {"input_ids": [], "attention_mask": []}
+        block_size = data_args.max_source_length + data_args.max_new_tokens
+        for ex in examples["translation"]:
+            lang1, lang2 = list(ex.keys())
+            lang = lang1 if lang1 != "en" else lang2
+            _input = tokenizer(ex[lang], max_length=block_size - 1, add_special_tokens=True)
+            _input['input_ids'].append(tokenizer.eos_token_id)
+            _input['attention_mask'].append(1)
+            if data_args.use_prefix_lm:
+                _input['prefix_mask'] = [0] * len(_input['attention_mask'])
+                inputs["prefix_mask"].append(_input['prefix_mask'])
+            inputs["input_ids"].append(_input['input_ids'])
+            inputs['attention_mask'].append(_input['attention_mask'])
+            
+        
+        concatenated_inputs = {k: list(chain(*inputs[k])) for k in inputs.keys()}
+        total_length = len(concatenated_inputs[list(inputs.keys())[0]])
+        total_length = (total_length // block_size) * block_size
+
+        model_inputs = {
+            k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+            for k, t in concatenated_inputs.items()
+        }
+
+        model_inputs["labels"] = copy.deepcopy(model_inputs["input_ids"])
         return model_inputs
 
 
@@ -354,11 +361,9 @@ def main():
     if data_args.right_pad:
         mmt_train_eval_tok_func = tokenize_function_train_eval_right_pad
         instruct_tok_func = instruct_tokenize_function_right_pad
-        mmt_eval_tok_func = tokenize_function_eval_right_pad
     else:
         mmt_train_eval_tok_func = tokenize_function_train_eval_left_pad
         instruct_tok_func = instruct_tokenize_function_left_pad
-        mmt_eval_tok_func = tokenize_function_train_eval_right_pad
     if training_args.do_train:
         processed_datasets = []
         if data_args.mmt_data_path:
@@ -393,12 +398,26 @@ def main():
                     desc="Running tokenizer on instruct train dataset",
                 )
             processed_datasets.append(train_dataset)
-
-
+        if data_args.mono_data_path:
+            train_dataset = train_mono_raw_data['train']
+            if data_args.max_train_samples is not None:
+                max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                train_dataset = train_dataset.select(range(max_train_samples))
+            with training_args.main_process_first(desc="train dataset map pre-processing"):
+                train_dataset = train_dataset.map(
+                    tokenize_function_train_mono,
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=column_names_mmt,
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-{data_args.mono_data_path.split('/')[-1]}",
+                    load_from_cache_file=not data_args.overwrite_cache,
+                    desc="Running tokenizer on monolingual train dataset",
+                )
+            processed_datasets.append(train_dataset)
+                
         train_datasets = concatenate_datasets(processed_datasets)
         train_datasets = train_datasets.shuffle(seed=training_args.seed)
         
-
     if training_args.do_eval:
         processed_datasets = []
         for lg_pair, sub_raw_data in valid_raw_data.items():
@@ -408,7 +427,7 @@ def main():
                 eval_dataset = eval_dataset.select(range(max_eval_samples))
             with training_args.main_process_first(desc="validation dataset map pre-processing"):
                 eval_dataset = eval_dataset.map(
-                    mmt_eval_tok_func,
+                    mmt_train_eval_tok_func,
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
@@ -440,12 +459,7 @@ def main():
             test_datasets[lg_pair] = test_dataset
 
     metric = evaluate.load("sacrebleu")
-
-    ## Load model
-    model = load_model(data_args, model_args, training_args, tokenizer, logger)
     
-    if data_args.use_ul2:
-        assert data_args.use_prefix_lm, "Must enable use prefix language model"
     collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
