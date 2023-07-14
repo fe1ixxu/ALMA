@@ -498,6 +498,9 @@ def main():
             trainer.save_model()  # Saves the tokenizer too for easy upload
     # Prediction
     if training_args.do_predict:
+        if model_args.use_peft:
+            trainer._load_from_checkpoint(training_args.output_dir)
+
         trainer.args.prediction_loss_only = False
         lg_pairs = sorted(test_datasets.keys()) # make sure each device print in the same order
         for lg_pair in lg_pairs:

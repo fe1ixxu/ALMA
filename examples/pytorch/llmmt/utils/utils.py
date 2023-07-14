@@ -351,19 +351,19 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
 
     ## PEFT: LORA:
     if model_args.use_peft:
-        if last_checkpoint:
-            config = PeftConfig.from_pretrained(last_checkpoint)
-            model = PeftModel.from_pretrained(model, last_checkpoint)
-        else:
-            config = LoraConfig(
-                r=16,
-                lora_alpha=32,
-                target_modules=["Wqkv"],
-                lora_dropout=0.05,
-                bias="none",
-                task_type="CAUSAL_LM"
-            )
-            model = get_peft_model(model, config)
+        # if last_checkpoint:
+        #     config = PeftConfig.from_pretrained(last_checkpoint)
+        #     model = PeftModel.from_pretrained(model, last_checkpoint)
+        # else:
+        config = LoraConfig(
+            r=16,
+            lora_alpha=32,
+            target_modules=["down_proj"],
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM"
+        )
+        model = get_peft_model(model, config)
             
         print_trainable_parameters(model)
     return model
