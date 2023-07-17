@@ -138,6 +138,7 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
                 data_files={"train": train_file},
                 cache_dir=model_args.cache_dir,
                 use_auth_token=True if model_args.use_auth_token else None,
+                streaming=data_args.streaming,
                 )
         if not os.path.isfile(valid_file):
             logger.info(f"Warning: validation file {valid_file} does not exist!")

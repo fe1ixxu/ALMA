@@ -373,15 +373,22 @@ def main():
                     max_train_samples = min(len(train_dataset), data_args.max_train_samples)
                     train_dataset = train_dataset.select(range(max_train_samples))
                 with training_args.main_process_first(desc="train dataset map pre-processing"):
-                    train_dataset = train_dataset.map(
-                        mmt_train_eval_tok_func,
-                        batched=True,
-                        num_proc=data_args.preprocessing_num_workers,
-                        remove_columns=column_names_mmt,
-                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.suffix}",
-                        load_from_cache_file=not data_args.overwrite_cache,
-                        desc="Running tokenizer on MMT train dataset",
-                    )
+                    if not data_args.streaming:
+                        train_dataset = train_dataset.map(
+                            mmt_train_eval_tok_func,
+                            batched=True,
+                            num_proc=data_args.preprocessing_num_workers,
+                            remove_columns=column_names_mmt,
+                            cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.suffix}",
+                            load_from_cache_file=not data_args.overwrite_cache,
+                            desc="Running tokenizer on MMT train dataset",
+                        )
+                    else:
+                        train_dataset = train_dataset.map(
+                            mmt_train_eval_tok_func,
+                            batched=True,
+                            remove_columns=column_names_mmt,
+                        )    
                 processed_datasets.append(train_dataset)
         if data_args.instruct_data_path:
             train_dataset = train_instruct_raw_data["train"]
@@ -389,14 +396,21 @@ def main():
                 max_train_samples = min(len(train_dataset), data_args.max_train_samples)
                 train_dataset = train_dataset.select(range(max_train_samples))
             with training_args.main_process_first(desc="train dataset map pre-processing"):
-                train_dataset = train_dataset.map(
-                    instruct_tok_func,
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names_instruct,
-                    load_from_cache_file=not data_args.overwrite_cache,
-                    desc="Running tokenizer on instruct train dataset",
-                )
+                if not data_args.streaming:
+                    train_dataset = train_dataset.map(
+                        instruct_tok_func,
+                        batched=True,
+                        num_proc=data_args.preprocessing_num_workers,
+                        remove_columns=column_names_instruct,
+                        load_from_cache_file=not data_args.overwrite_cache,
+                        desc="Running tokenizer on instruct train dataset",
+                    )
+                else:
+                    train_dataset = train_dataset.map(
+                        instruct_tok_func,
+                        batched=True,
+                        remove_columns=column_names_instruct,
+                    )
             processed_datasets.append(train_dataset)
         if data_args.mono_data_path:
             train_dataset = train_mono_raw_data['train']
@@ -404,17 +418,24 @@ def main():
                 max_train_samples = min(len(train_dataset), data_args.max_train_samples)
                 train_dataset = train_dataset.select(range(max_train_samples))
             with training_args.main_process_first(desc="train dataset map pre-processing"):
-                train_dataset = train_dataset.map(
-                    tokenize_function_train_mono,
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=column_names_mmt,
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-{data_args.mono_data_path.split('/')[-1]}",
-                    load_from_cache_file=not data_args.overwrite_cache,
-                    desc="Running tokenizer on monolingual train dataset",
-                )
+                if not data_args.streaming:
+                    train_dataset = train_dataset.map(
+                        tokenize_function_train_mono,
+                        batched=True,
+                        num_proc=data_args.preprocessing_num_workers,
+                        remove_columns=column_names_mmt,
+                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-{data_args.mono_data_path.split('/')[-1]}",
+                        load_from_cache_file=not data_args.overwrite_cache,
+                        desc="Running tokenizer on monolingual train dataset",
+                    )
+                else:
+                    train_dataset = train_dataset.map(
+                        tokenize_function_train_mono,
+                        batched=True,
+                        remove_columns=column_names_mmt,
+                    )
             processed_datasets.append(train_dataset)
-                
+        
         train_datasets = concatenate_datasets(processed_datasets)
         train_datasets = train_datasets.shuffle(seed=training_args.seed)
         
