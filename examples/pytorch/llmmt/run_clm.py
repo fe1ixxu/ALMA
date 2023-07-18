@@ -62,7 +62,7 @@ from peft import PeftModel, PeftConfig
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
-from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
+from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT, SavePeftModelCallback
 from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, check_add_eos_right_pad, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
@@ -158,8 +158,7 @@ def main():
     tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
     if data_args.use_ul2:
         assert data_args.use_prefix_lm, "Must enable use prefix language model"
-    ## Load model
-    model = load_model(data_args, model_args, training_args, tokenizer, logger)
+
     # Preprocessing the datasets.
     if data_args.instruct_data_path:
         column_names_instruct = ["instruction", "output", "input"]
@@ -379,7 +378,7 @@ def main():
                             batched=True,
                             num_proc=data_args.preprocessing_num_workers,
                             remove_columns=column_names_mmt,
-                            cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.suffix}",
+                            cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{pairs}-{data_args.suffix}",
                             load_from_cache_file=not data_args.overwrite_cache,
                             desc="Running tokenizer on MMT train dataset",
                         )
@@ -452,7 +451,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-valid-mmt-{lg_pair}-{data_args.suffix}",
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-valid-mmt-{pairs}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer valid dataset",
                 )
@@ -473,7 +472,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=[lg_pair],
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-test-mmt-{lg_pair}-{data_args.suffix}",
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-test-mmt-{pairs}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer test dataset",
                 )
@@ -481,7 +480,10 @@ def main():
 
     metric = evaluate.load("sacrebleu")
     
+    ## Load model
+    model = load_model(data_args, model_args, training_args, tokenizer, logger)
     collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
+    
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
         model=model,
@@ -490,9 +492,9 @@ def main():
         eval_dataset=eval_datasets if training_args.do_eval else None,
         tokenizer=tokenizer,
         # Data collator will default to DataCollatorWithPadding, so we change it.
-        data_collator=collate_fn 
+        data_collator=collate_fn,
         # compute_metrics=compute_metrics if (training_args.do_eval or training_args.do_predict) and not is_torch_tpu_available() else None,
-        # callbacks=[SavePeftModelCallback],
+        callbacks=[SavePeftModelCallback] if model_args.use_peft else None,
     )
 
     # Training
@@ -519,8 +521,8 @@ def main():
             trainer.save_model()  # Saves the tokenizer too for easy upload
     # Prediction
     if training_args.do_predict:
-        if model_args.use_peft:
-            trainer._load_from_checkpoint(training_args.output_dir)
+        # if model_args.use_peft:
+        #     trainer._load_from_checkpoint(training_args.output_dir)
 
         trainer.args.prediction_loss_only = False
         lg_pairs = sorted(test_datasets.keys()) # make sure each device print in the same order
