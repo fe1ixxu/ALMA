@@ -479,7 +479,7 @@ def main():
             test_datasets[lg_pair] = test_dataset
 
     metric = evaluate.load("sacrebleu")
-    
+
     ## Load model
     model = load_model(data_args, model_args, training_args, tokenizer, logger)
     collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
@@ -546,9 +546,9 @@ def main():
                 # Some simple post-processing
                 decoded_preds = [pred.strip() for pred in decoded_preds]
 
-                # for idx in range(10):
-                #     print("------------------------")
-                #     print(decoded_preds[idx])
+                for idx in range(10):
+                    print("------------------------")
+                    print(decoded_preds[idx])
 
                 with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
                     suffix = f"\n{LANG_TABLE[tgt_lang]}:" if not data_args.instruct_data_path else "### Response:"

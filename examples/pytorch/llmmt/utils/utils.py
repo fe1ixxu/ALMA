@@ -363,7 +363,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
                 bias="none",
                 task_type="CAUSAL_LM"
             )
-        model = get_peft_model(model, config)
+            model = get_peft_model(model, config)
             
         print_trainable_parameters(model)
     return model
