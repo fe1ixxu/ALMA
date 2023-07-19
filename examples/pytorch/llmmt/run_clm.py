@@ -153,6 +153,15 @@ def main():
                 use_auth_token=True if model_args.use_auth_token else None,
                 streaming=data_args.streaming,
             )
+        if data_args.oscar_data_path:
+            assert data_args.oscar_data_lang
+            train_oscar_raw_data = load_dataset(
+                data_args.oscar_data_path,
+                data_args.oscar_data_lang,
+                cache_dir=model_args.cache_dir,
+                use_auth_token=True if model_args.use_auth_token else None,
+                streaming=data_args.streaming,
+            )
     ## load tokenizer
     set_seed(training_args.seed)
     tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
@@ -164,6 +173,9 @@ def main():
         column_names_instruct = ["instruction", "output", "input"]
     if data_args.mmt_data_path or data_args.mono_data_path:
         column_names_mmt = ["translation"]
+    if data_args.oscar_data_path:
+        column_name_oscar = ["id", "meta", "text"]
+
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
     padding = "max_length"
@@ -299,6 +311,35 @@ def main():
         model_inputs["labels"] = copy.deepcopy(model_inputs["input_ids"])
         return model_inputs
 
+    def tokenize_function_train_oscar_mono(examples):
+        if data_args.use_prefix_lm:
+            inputs = {"input_ids": [], "attention_mask": [], "prefix_mask": []}      
+        else:
+            inputs = {"input_ids": [], "attention_mask": []}
+        block_size = data_args.max_source_length + data_args.max_new_tokens
+        for ex in examples["text"]:
+            _input = tokenizer(ex, max_length=block_size - 1, add_special_tokens=True)
+            _input['input_ids'].append(tokenizer.eos_token_id)
+            _input['attention_mask'].append(1)
+            if data_args.use_prefix_lm:
+                _input['prefix_mask'] = [0] * len(_input['attention_mask'])
+                inputs["prefix_mask"].append(_input['prefix_mask'])
+            inputs["input_ids"].append(_input['input_ids'])
+            inputs['attention_mask'].append(_input['attention_mask'])
+            
+        
+        concatenated_inputs = {k: list(chain(*inputs[k])) for k in inputs.keys()}
+        total_length = len(concatenated_inputs[list(inputs.keys())[0]])
+        total_length = (total_length // block_size) * block_size
+
+        model_inputs = {
+            k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+            for k, t in concatenated_inputs.items()
+        }
+
+        model_inputs["labels"] = copy.deepcopy(model_inputs["input_ids"])
+        return model_inputs
+
 
     def instruct_tokenize_function_right_pad(examples):
         inputs = []
@@ -378,7 +419,7 @@ def main():
                             batched=True,
                             num_proc=data_args.preprocessing_num_workers,
                             remove_columns=column_names_mmt,
-                            cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{pairs}-{data_args.suffix}",
+                            cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}",
                             load_from_cache_file=not data_args.overwrite_cache,
                             desc="Running tokenizer on MMT train dataset",
                         )
@@ -434,7 +475,15 @@ def main():
                         remove_columns=column_names_mmt,
                     )
             processed_datasets.append(train_dataset)
-        
+        if data_args.oscar_data_path:
+            train_dataset = train_oscar_raw_data['train']
+            with training_args.main_process_first(desc="train dataset map pre-processing"):
+                train_dataset = train_dataset.map(
+                    tokenize_function_train_oscar_mono,
+                    batched=True,
+                    remove_columns=column_name_oscar,
+                )
+            processed_datasets.append(train_dataset)
         train_datasets = concatenate_datasets(processed_datasets)
         train_datasets = train_datasets.shuffle(seed=training_args.seed)
         
@@ -451,7 +500,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-valid-mmt-{pairs}-{data_args.suffix}",
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-valid-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer valid dataset",
                 )
@@ -472,7 +521,7 @@ def main():
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=[lg_pair],
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-test-mmt-{pairs}-{data_args.suffix}",
+                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-test-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer test dataset",
                 )

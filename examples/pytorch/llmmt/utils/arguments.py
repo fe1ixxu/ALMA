@@ -116,6 +116,8 @@ class DataTrainingArguments:
     )
     mmt_data_path: Optional[str] = field(default=None, metadata={"help": "The input MMT training data path."})
     mono_data_path: Optional[str] = field(default=None, metadata={"help": "The input mono data training data path."})
+    oscar_data_path: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data name."})
+    oscar_data_lang: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data language."})
     instruct_data_path: Optional[str] = field(default=None, metadata={"help": "The input instruct training data path, a json file."})
     max_train_samples: Optional[int] = field(
         default=None,
