@@ -358,7 +358,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             config = LoraConfig(
                 r=16,
                 lora_alpha=32,
-                target_modules=["up_proj"],
+                target_modules=["down_proj"],
                 lora_dropout=0.05,
                 bias="none",
                 task_type="CAUSAL_LM"
