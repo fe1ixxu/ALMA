@@ -307,7 +307,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             else getattr(torch, model_args.torch_dtype)
         )
         model = AutoModelForCausalLM.from_pretrained(
-            model_args.model_name_or_path if last_checkpoint is None or model_args.use_peft else last_checkpoint,
+            model_args.model_name_or_path if last_checkpoint is None else last_checkpoint,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
             config=config,
             cache_dir=model_args.cache_dir,
@@ -324,7 +324,31 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         model = AutoModelForCausalLM.from_config(config)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
-    
+
+    # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
+    # on a small vocab and want a smaller embedding size, remove this test.
+    embedding_size = model.get_input_embeddings().weight.shape[0]
+    if len(tokenizer) > embedding_size:
+        model.resize_token_embeddings(len(tokenizer))
+
+    if model_args.use_peft:
+        # if model_args.peft_model_id:
+        #     config = PeftConfig.from_pretrained(model_args.peft_model_id)
+        #     model = PeftModel.from_pretrained(model, model_args.peft_model_id)
+        # else:
+        config = LoraConfig(
+            r=16,
+            lora_alpha=32,
+            target_modules=["down_proj"],
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM"
+        )
+        model = get_peft_model(model, config)
+        if model_args.peft_model_id:
+            model.load_adapter(model_args.peft_model_id, adapter_name=model_args.peft_model_id)
+        print_trainable_parameters(model)
+
     if "llama" in model_args.model_name_or_path:
         model.config.pad_token_id = 0
         model.config.bos_token_id = 1
@@ -350,29 +374,6 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             if "norm" in name:
                 param.requires_grad = False
         
-    # We resize the embeddings only when necessary to avoid index errors. If you are creating a model from scratch
-    # on a small vocab and want a smaller embedding size, remove this test.
-    embedding_size = model.get_input_embeddings().weight.shape[0]
-    if len(tokenizer) > embedding_size:
-        model.resize_token_embeddings(len(tokenizer))
-
-    ## PEFT: LORA:
-    if model_args.use_peft:
-        if last_checkpoint:
-            config = PeftConfig.from_pretrained(last_checkpoint)
-            model = PeftModel.from_pretrained(model, last_checkpoint)
-        else:
-            config = LoraConfig(
-                r=16,
-                lora_alpha=32,
-                target_modules=["down_proj"],
-                lora_dropout=0.05,
-                bias="none",
-                task_type="CAUSAL_LM"
-            )
-            model = get_peft_model(model, config)
-            
-        print_trainable_parameters(model)
     return model
     
 def load_tokenizer(data_args, model_args, training_args, logger):
