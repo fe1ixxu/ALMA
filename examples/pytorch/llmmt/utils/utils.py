@@ -332,6 +332,13 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         model.generation_config.pad_token_id = 0
         model.generation_config.bos_token_id = 1
         model.generation_config.eos_token_id = 2
+    elif "BigTranslate" in model_args.model_name_or_path:
+        model.config.pad_token_id = 2
+        model.config.bos_token_id = 1
+        model.config.eos_token_id = 2
+        model.generation_config.pad_token_id = 2
+        model.generation_config.bos_token_id = 1
+        model.generation_config.eos_token_id = 2 
     elif "mpt" in model_args.model_name_or_path:
         model.config.pad_token_id = 1
         model.config.bos_token_id = 0
@@ -379,7 +386,7 @@ def load_tokenizer(data_args, model_args, training_args, logger):
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
     elif model_args.model_name_or_path:
-        if "llama" in model_args.model_name_or_path:
+        if "llama" in model_args.model_name_or_path or "BigTranslate" in model_args.model_name_or_path:
             tokenizer = LlamaTokenizer.from_pretrained(
                 model_args.model_name_or_path, 
                 **tokenizer_kwargs, 
