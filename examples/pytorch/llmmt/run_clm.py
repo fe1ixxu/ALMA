@@ -63,8 +63,8 @@ from peft import PeftModel, PeftConfig
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
-from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT, SavePeftModelCallback
-from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, check_add_eos_right_pad, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model
+from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
+from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, check_add_eos_right_pad, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -393,7 +393,7 @@ def main():
         source_lang, target_lang = feature_name.split("-")
         for ex in examples[feature_name]:
             if f"{source_lang}-{target_lang}" in pairs:
-                prompt = get_prompt_fun(source_lang, target_lang, ex, shots_eval_dict)
+                prompt = get_prompt_fun(source_lang, target_lang, ex, shots_eval_dict, data_args.use_target_lang_prompt_eval)
                 prompts.append(prompt)
                 targets.append(prompt + ex[target_lang])
         original_padding_side = tokenizer.padding_side
@@ -610,7 +610,7 @@ def main():
                     print(decoded_preds[idx])
 
                 with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
-                    suffix = f"\n{LANG_TABLE[tgt_lang]}:" if not data_args.instruct_data_path else "### Response:"
+                    suffix = get_key_suffix(tgt_lang, data_args)
                     if len(shots_eval_dict) != 0:
                         split_idx = len(shots_eval_dict[lg_pair]) + 1
                     else:
@@ -618,12 +618,7 @@ def main():
                     for pred in decoded_preds:
                         pred = clean_outputstring(pred, suffix, logger, split_idx)
                         f.writelines([pred, "\n"])
-# # suffix for splitting and getting the generated sentences
-# def get_key_suffix(src_lang, tgt_lang):
-#     if data_args.instruct_data_path:
-#         return "### Response:"
-#     elif data_args.few_shot_eval_path:
-#         return 
+
 def _mp_fn(index):
     # For xla_spawn (TPUs)
     main()

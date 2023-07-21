@@ -93,6 +93,33 @@ LANG_TABLE = {
     "ro": "Romanian",
 }
 
+## Prefix and suffix for prompt in target language (only from English to target language if the target is non-English)
+PREFIX = {
+    "de": "Übersetzen Sie dies vom Englischen ins Deutsche:\nEnglisch: ",
+    "fr": "Traduisez ceci de l'anglais vers le français :\nAnglais: ",
+    "cs": "Přeložte toto z angličtiny do češtiny:\nanglicky: ",
+    "is": "Þýddu þetta úr ensku yfir á íslensku:\nEnska: ",
+    "zh": "将其从英文翻译成中文：\n英语：",
+    "ja": "これを英語から日本語に翻訳してください:\n英語：",
+    "ru": "Переведите это с английского на русский:\nАнглийский: ",
+    "uk": "Перекладіть це з англійської на українську:\nАнглійська: ",
+    "ha": "Fassara wannan daga Turanci zuwa Hausa:\nTuranci: ",
+}
+
+SUFFIX = {
+    "en": "\nEnglish:",
+    "de": "\nDeutsch:",
+    "fr": "\nFrançais :",
+    "cs": "\nčesky:",
+    "is": "\nÍslenska:",
+    "zh": "\n中文：",
+    "ja": "\n日本語：",
+    "ru": "\nРусский:",
+    "uk": "\nУкраїнська:",
+    "ha": "\nHausa:",
+}
+
+
 INSTRUCT_PROMPT_DICT = {
     "prompt_input": (
         "Below is an instruction that describes a task, paired with an input that provides further context. "
@@ -118,11 +145,6 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
         first_lang = src_lang if src_lang != "en" else tgt_lang
         second_lang = "en"
         pair_dir = first_lang + second_lang
-
-        # if first_lang in ["de", "cs", "ru"] or second_lang in ["de", "cs", "ru"]:
-        #     h_suffix = f"-{10000}" if data_args.suffix else ""
-        # else:
-        #     h_suffix = f"-{data_args.suffix}" if data_args.suffix else ""
             
         h_suffix = f"-{data_args.suffix}" if data_args.suffix else ""
         train_file = os.path.join(data_args.mmt_data_path, pair_dir, f"train.{first_lang}-{second_lang}{h_suffix}.json")
@@ -194,7 +216,16 @@ def get_first_non_specical_index(input_tensor, special):
     assert input_tensor.ndim == 1
     first_non_pad_index = (input_tensor != special).nonzero(as_tuple=True)[0][0]
     return first_non_pad_index.item()
-        
+
+# Suffix for splitting and getting the generated sentences
+def get_key_suffix(tgt_lang, data_args):
+    if data_args.instruct_data_path:
+        return "### Response:"
+    elif data_args.use_target_lang_prompt_eval:
+        return SUFFIX[tgt_lang]
+    else:
+        return f"\n{LANG_TABLE[tgt_lang]}:"
+
 def get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict):
     src_fullname = LANG_TABLE[source_lang]
     tgt_fullname = LANG_TABLE[target_lang]
@@ -209,13 +240,17 @@ def get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict):
     prompt = prefix + shot_prompt + f"\n{src_fullname}: " + ex[source_lang] + suffix
     return prompt
 
-def get_prompt(source_lang, target_lang, ex, shots_eval_dict={}):
+def get_prompt(source_lang, target_lang, ex, shots_eval_dict={}, use_target_lang_prompt_eval=False):
     if len(shots_eval_dict) != 0:
         return get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict)
     src_fullname = LANG_TABLE[source_lang]
     tgt_fullname = LANG_TABLE[target_lang]
-    prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
-    suffix = f"\n{tgt_fullname}:"
+    if use_target_lang_prompt_eval and target_lang != "en":
+        prefix = PREFIX[target_lang]
+        suffix = SUFFIX[target_lang]
+    else:
+        prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
+        suffix = f"\n{tgt_fullname}:"
     prompt = prefix + ex[source_lang] + suffix
     return prompt
 

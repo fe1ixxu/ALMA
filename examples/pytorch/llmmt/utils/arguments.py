@@ -243,7 +243,12 @@ class DataTrainingArguments:
             "help": "The path for few show evaluation"
         },
     )
-
+    use_target_lang_prompt_eval: bool = field(
+        default=False,
+        metadata={
+            "help": "Enable prompt from target language, e.g., in Chinese, the prompt is 将其从英语翻译成汉语：......"
+        },
+    )
 
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
     # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})
