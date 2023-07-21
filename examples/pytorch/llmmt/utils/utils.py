@@ -383,21 +383,22 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
         model.resize_token_embeddings(len(tokenizer))
 
     if model_args.use_peft:
-        # if model_args.peft_model_id:
-        #     config = PeftConfig.from_pretrained(model_args.peft_model_id)
-        #     model = PeftModel.from_pretrained(model, model_args.peft_model_id)
-        # else:
-        config = LoraConfig(
-            r=16,
-            lora_alpha=32,
-            target_modules=["down_proj"],
-            lora_dropout=0.05,
-            bias="none",
-            task_type="CAUSAL_LM"
-        )
-        model = get_peft_model(model, config)
         if model_args.peft_model_id:
-            model.load_adapter(model_args.peft_model_id, adapter_name=model_args.peft_model_id)
+            model = PeftModel.from_pretrained(model, model_args.peft_model_id)
+            # model.load_adapter(model_args.peft_model_id, adapter_name=model_args.peft_model_id)
+            for name, param in model.named_parameters():
+                if "lora_A" in name or "lora_B" in name:
+                    param.requires_grad = True
+        else:
+            config = LoraConfig(
+                r=16,
+                lora_alpha=32,
+                target_modules=["down_proj"],
+                lora_dropout=0.05,
+                bias="none",
+                task_type="CAUSAL_LM"
+            )
+            model = get_peft_model(model, config)
         print_trainable_parameters(model)
 
     if "llama" in model_args.model_name_or_path:
