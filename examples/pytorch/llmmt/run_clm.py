@@ -614,7 +614,7 @@ def main():
                     if len(shots_eval_dict) != 0:
                         split_idx = len(shots_eval_dict[lg_pair]) + 1
                     else:
-                        split_idx = 0
+                        split_idx = 1
                     for pred in decoded_preds:
                         pred = clean_outputstring(pred, suffix, logger, split_idx)
                         f.writelines([pred, "\n"])
