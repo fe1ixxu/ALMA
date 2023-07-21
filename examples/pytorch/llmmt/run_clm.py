@@ -26,6 +26,7 @@ import copy
 import math
 import os
 import sys
+import json
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Optional
@@ -183,6 +184,15 @@ def main():
     #### Decide which prompt used for prompting:
     
     get_prompt_fun = get_prompt_mt_instruct if data_args.instruct_data_path else get_prompt
+    shots_eval_dict = {}
+    if data_args.few_shot_eval_path:
+        for lg_pair in test_raw_data.keys():
+            pair_shot_path = os.path.join(data_args.few_shot_eval_path, f"shots.{lg_pair}.json")
+            if not os.path.isfile(pair_shot_path):
+                ValueError(f"Make sure the language pair {lg_pair} is in the few shot eval folder!")
+            with open(pair_shot_path) as f:
+                shots_eval_dict[lg_pair] = json.load(f)
+
     def instruct_tokenize_function_left_pad(examples):
         inputs = []
         prompts = []
@@ -383,7 +393,7 @@ def main():
         source_lang, target_lang = feature_name.split("-")
         for ex in examples[feature_name]:
             if f"{source_lang}-{target_lang}" in pairs:
-                prompt = get_prompt_fun(source_lang, target_lang, ex)
+                prompt = get_prompt_fun(source_lang, target_lang, ex, shots_eval_dict)
                 prompts.append(prompt)
                 targets.append(prompt + ex[target_lang])
         original_padding_side = tokenizer.padding_side
@@ -601,10 +611,19 @@ def main():
 
                 with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
                     suffix = f"\n{LANG_TABLE[tgt_lang]}:" if not data_args.instruct_data_path else "### Response:"
+                    if len(shots_eval_dict) != 0:
+                        split_idx = len(shots_eval_dict[lg_pair]) + 1
+                    else:
+                        split_idx = 0
                     for pred in decoded_preds:
-                        pred = clean_outputstring(pred, suffix, logger)
+                        pred = clean_outputstring(pred, suffix, logger, split_idx)
                         f.writelines([pred, "\n"])
-
+# # suffix for splitting and getting the generated sentences
+# def get_key_suffix(src_lang, tgt_lang):
+#     if data_args.instruct_data_path:
+#         return "### Response:"
+#     elif data_args.few_shot_eval_path:
+#         return 
 def _mp_fn(index):
     # For xla_spawn (TPUs)
     main()

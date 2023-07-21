@@ -194,8 +194,24 @@ def get_first_non_specical_index(input_tensor, special):
     assert input_tensor.ndim == 1
     first_non_pad_index = (input_tensor != special).nonzero(as_tuple=True)[0][0]
     return first_non_pad_index.item()
+        
+def get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict):
+    src_fullname = LANG_TABLE[source_lang]
+    tgt_fullname = LANG_TABLE[target_lang]
+    shots = shots_eval_dict[f"{source_lang}-{target_lang}"]
+    prefix = f"Translate this from {src_fullname} to {tgt_fullname}:"
+    shot_prompt = ""
+    for shot in shots:
+        shot_src = shot['source']
+        shot_tgt = shot['target']
+        shot_prompt += f"\n{src_fullname}: " + shot_src + f"\n{tgt_fullname}: " + shot_tgt
+    suffix = f"\n{tgt_fullname}:"
+    prompt = prefix + shot_prompt + f"\n{src_fullname}: " + ex[source_lang] + suffix
+    return prompt
 
-def get_prompt(source_lang, target_lang, ex):
+def get_prompt(source_lang, target_lang, ex, shots_eval_dict={}):
+    if len(shots_eval_dict) != 0:
+        return get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict)
     src_fullname = LANG_TABLE[source_lang]
     tgt_fullname = LANG_TABLE[target_lang]
     prefix = f"Translate this from {src_fullname} to {tgt_fullname}:\n{src_fullname}: "
@@ -247,9 +263,9 @@ def print_trainable_parameters(model):
     )
 
 
-def clean_outputstring(output, key_word, logger):
+def clean_outputstring(output, key_word, logger, split_idx):
     try:
-        out = output.split(key_word)[1].split("\n")
+        out = output.split(key_word)[split_idx].split("\n")
         if out[0].strip() != "":
             return out[0].strip()
         elif out[1].strip() != "":

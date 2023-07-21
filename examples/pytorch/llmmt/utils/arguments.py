@@ -237,6 +237,12 @@ class DataTrainingArguments:
             "help": "Use prefix language model, especially for models like MPT."
         },
     )
+    few_shot_eval_path: str = field(
+        default="",
+        metadata={
+            "help": "The path for few show evaluation"
+        },
+    )
 
 
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
