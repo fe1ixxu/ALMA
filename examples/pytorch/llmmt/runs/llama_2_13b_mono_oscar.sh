@@ -35,12 +35,12 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --fp16 \
     --learning_rate 2e-5 \
     --weight_decay 0.01 \
-    --gradient_accumulation_steps 4 \
+    --gradient_accumulation_steps 8 \
     --lr_scheduler_type cosine \
-    --warmup_ratio 5000 \
+    --warmup_ratio 0.01 \
     --ignore_pad_token_for_loss \
     --ignore_prompt_token_for_loss \
-    --per_device_train_batch_size 4 \
+    --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 4 \
     --save_strategy steps \
     --save_steps 2000 \
