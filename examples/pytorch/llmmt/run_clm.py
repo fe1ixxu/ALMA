@@ -62,7 +62,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, Ta
 from peft import PeftModel, PeftConfig
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
-from datasets import concatenate_datasets
+from datasets import concatenate_datasets, interleave_datasets
 from utils.utils import LANG_TABLE, INSTRUCT_PROMPT_DICT
 from utils.utils import load_mmt_dataset, get_prompt_mt_instruct, check_add_eos_right_pad, get_first_non_pad_index, clean_outputstring, get_prompt, check_add_eos, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
 from utils.arguments import ModelArguments, DataTrainingArguments
@@ -155,14 +155,25 @@ def main():
                 streaming=data_args.streaming,
             )
         if data_args.oscar_data_path:
-            assert data_args.oscar_data_lang
-            train_oscar_raw_data = load_dataset(
-                data_args.oscar_data_path,
-                data_args.oscar_data_lang,
-                cache_dir=model_args.cache_dir,
-                use_auth_token=True if model_args.use_auth_token else None,
-                streaming=data_args.streaming,
-            )
+            oscar_langs = data_args.oscar_data_lang.split(",")
+            if data_args.interleave_probs:
+                interleave_probs = [float(p) for p in data_args.interleave_probs.split(",")]
+            else:
+                interleave_probs = [1/len(oscar_langs)] * len(oscar_langs)
+            oscar_langs = [x for x, _ in sorted(zip(oscar_langs, interleave_probs), key=lambda zippair: zippair[1])]
+            interleave_probs = sorted(interleave_probs)
+            train_oscar_raw_data = []
+            for lg in oscar_langs:
+                train_oscar_raw_data.append(
+                    load_dataset(
+                        data_args.oscar_data_path,
+                        lg,
+                        cache_dir=model_args.cache_dir,
+                        use_auth_token=True if model_args.use_auth_token else None,
+                        streaming=data_args.streaming,
+                    )['train']
+                )
+            train_oscar_raw_data = interleave_datasets(train_oscar_raw_data, probabilities=interleave_probs, seed=training_args.seed, stopping_strategy="all_exhausted")
     ## load tokenizer
     set_seed(training_args.seed)
     tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
@@ -299,7 +310,7 @@ def main():
         for ex in examples["translation"]:
             lang1, lang2 = list(ex.keys())
             lang = lang1 if lang1 != "en" else lang2
-            _input = tokenizer(ex[lang], max_length=block_size - 1, add_special_tokens=True)
+            _input = tokenizer(ex[lang], max_length=4096, add_special_tokens=True)
             _input['input_ids'].append(tokenizer.eos_token_id)
             _input['attention_mask'].append(1)
             if data_args.use_prefix_lm:
@@ -328,7 +339,7 @@ def main():
             inputs = {"input_ids": [], "attention_mask": []}
         block_size = data_args.max_source_length + data_args.max_new_tokens
         for ex in examples["text"]:
-            _input = tokenizer(ex, max_length=block_size - 1, add_special_tokens=True)
+            _input = tokenizer(ex, max_length=4096, add_special_tokens=True)
             _input['input_ids'].append(tokenizer.eos_token_id)
             _input['attention_mask'].append(1)
             if data_args.use_prefix_lm:
@@ -486,7 +497,7 @@ def main():
                     )
             processed_datasets.append(train_dataset)
         if data_args.oscar_data_path:
-            train_dataset = train_oscar_raw_data['train']
+            train_dataset = train_oscar_raw_data
             with training_args.main_process_first(desc="train dataset map pre-processing"):
                 train_dataset = train_dataset.map(
                     tokenize_function_train_oscar_mono,

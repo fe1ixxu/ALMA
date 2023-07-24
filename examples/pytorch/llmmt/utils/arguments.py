@@ -250,6 +250,13 @@ class DataTrainingArguments:
         },
     )
 
+    interleave_probs: str = field(
+        default="",
+        metadata={
+            "help": "Usung interleave to concatenate datasets, with probabilities of p1,p2,p3,..., splited by commas"
+        },
+    )
+
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
     # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})
 
