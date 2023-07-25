@@ -3,7 +3,7 @@ This repo is for fine-tuning large language model on Machine translation, instru
 ## Environment Setup
 Running the following command and it will install two virtual environments: `llmmt` and `comet`. `llmmt` is for model training and `comet` is for evaluation.
 ```
-cd /home/aiscuser/; wget https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh; bash Anaconda3-2023.03-1-Linux-x86_64.sh; source ~/.bashrc cd /home/aiscuser/LLMMT/examples/pytorch/llmmt/
+cd /home/aiscuser/; wget https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh; bash Anaconda3-2023.03-1-Linux-x86_64.sh; source ~/.bashrc; cd /home/aiscuser/LLMMT/examples/pytorch/llmmt/
 bash install.sh
 ```
 ## Data Collection
