@@ -1,0 +1,32 @@
+description: workspace mi 200 login
+
+target:
+  service: sing
+  name: lang-sing-wu3
+  workspace_name: language-sing-mtprod-ws01-westus2
+
+environment:
+  image: pytorch:v2.0-rocm5.4-ub22
+  # azureml/aifx/stable-ubuntu2004-rocm523-py38-torch1121:biweekly.202301.1
+  registry: thammegowda.azurecr.io
+
+storage:
+  sdrgmainz01wus2:
+    storage_account_name: sdrgmainz01wus2
+    container_name: user
+    mount_dir: /mnt/sdrgmainz01wus2
+
+code:
+  local_dir: ./
+
+jobs:
+- name: loginmi200
+  submit_args: &sargs
+      # max_run_duration_seconds: 432000
+    env:
+      AMLT_DOCKERFILE_TEMPLATE: none
+      amlt_dockerfile_template: none
+
+  sku: 1x G16-MI200
+  command:
+  - sleep infinity
