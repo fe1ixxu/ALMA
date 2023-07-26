@@ -5,6 +5,8 @@ Running the following command and it will install two virtual environments: `llm
 ```
 cd /home/aiscuser/; wget https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh; bash Anaconda3-2023.03-1-Linux-x86_64.sh; source ~/.bashrc; cd /home/aiscuser/LLMMT/examples/pytorch/llmmt/
 bash install.sh
+wandb login
+huggingface-cli login
 ```
 ## Data Collection
 Dataset is already copied at `/home/aiscuer/filtered_wmt22/` folder by running `install.sh` above. `filtered_wmt22` has 8 folders corresponding 8 language pairs. Each language pair folder contains
