@@ -49,7 +49,7 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --max_source_length 256 \
     --seed 42 \
     --overwrite_output_dir \
-    --report_to none
+    --report_to wandb
 
 
 #     --use_ul2 \
