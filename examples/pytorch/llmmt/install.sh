@@ -8,7 +8,7 @@ cp -r /mnt/sdrgmainz01wus2/t-haoranxu/filtered_wmt22/ .
 echo "Copying finished"
 # install virtual env
 conda create -n llmmt python=3.8
-conda activate llmmt
+source /home/aiscuser/anaconda3/bin/activate llmmt
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.4.2
 cd LLMMT; pip install -e ./; cd ..
 cd peft; pip install -e ./; cd ..
@@ -27,7 +27,7 @@ pip install accelerate==0.20.3
 
 # install eval env
 conda create -n comet python=3.8
-conda activate comet
+source /home/aiscuser/anaconda3/bin/activate comet
 pip install unbabel-comet
 pip install sacrebleu[ja]
 conda deactivate
