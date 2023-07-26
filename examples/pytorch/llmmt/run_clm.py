@@ -310,14 +310,18 @@ def main():
         for ex in examples["translation"]:
             lang1, lang2 = list(ex.keys())
             lang = lang1 if lang1 != "en" else lang2
-            _input = tokenizer(ex[lang], max_length=4096, add_special_tokens=True)
-            _input['input_ids'].append(tokenizer.eos_token_id)
-            _input['attention_mask'].append(1)
-            if data_args.use_prefix_lm:
-                _input['prefix_mask'] = [0] * len(_input['attention_mask'])
-                inputs["prefix_mask"].append(_input['prefix_mask'])
-            inputs["input_ids"].append(_input['input_ids'])
-            inputs['attention_mask'].append(_input['attention_mask'])
+
+            for lang in [lang1, lang2]:
+                if ex[lang] == "":
+                    continue
+                _input = tokenizer(ex[lang], max_length=4096, add_special_tokens=True)
+                _input['input_ids'].append(tokenizer.eos_token_id)
+                _input['attention_mask'].append(1)
+                if data_args.use_prefix_lm:
+                    _input['prefix_mask'] = [0] * len(_input['attention_mask'])
+                    inputs["prefix_mask"].append(_input['prefix_mask'])
+                inputs["input_ids"].append(_input['input_ids'])
+                inputs['attention_mask'].append(_input['attention_mask'])
             
         
         concatenated_inputs = {k: list(chain(*inputs[k])) for k in inputs.keys()}
