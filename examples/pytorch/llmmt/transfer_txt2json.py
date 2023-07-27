@@ -1,6 +1,7 @@
 import json
 import argparse
 import random
+import jsonlines
 
 def detect_line_number(filename):
     with open(filename, encoding="utf-8") as f:
@@ -22,30 +23,29 @@ def sample_txt_json(args):
     sampled_indices = random.sample(indices, num_samples)
     sampled_indices = sorted(sampled_indices)
     print(sampled_indices[:10])
-    samples = []
+    suffix = "" if args.sample_ratio == 1 else "-" + str(num_samples)
     with open(args.path + f"/{args.split}.{args.src}-{args.tgt}.{args.src}", encoding="utf-8") as f_src:
         with open(args.path + f"/{args.split}.{args.src}-{args.tgt}.{args.tgt}", encoding="utf-8") as f_tgt:
-            src = f_src.readline()
-            tgt = f_tgt.readline()
-            cur_idx = 0
-            while src and tgt:
-                if cur_idx == sampled_indices[0]:
-                    cur_sample = {
-                       'translation':{
-                        args.src: src.strip(),
-                        args.tgt: tgt.strip()
-                       } 
-                    }
-                    samples.append(cur_sample)
-                    sampled_indices.pop(0)
-                    if len(sampled_indices) == 0:
-                        break
-                cur_idx += 1
+            with jsonlines.open(args.path + f"/{args.split}.{args.src}-{args.tgt}{suffix}.json", 'w') as f_w:
                 src = f_src.readline()
                 tgt = f_tgt.readline()
-    suffix = "" if args.sample_ratio == 1 else "-" + str(num_samples)
-    with open(args.path + f"/{args.split}.{args.src}-{args.tgt}{suffix}.json", 'w') as f_w:
-        json.dump(samples, f_w, ensure_ascii=False)
+                cur_idx = 0
+                while src and tgt:
+                    if cur_idx == sampled_indices[0]:
+                        cur_sample = {
+                        'translation':{
+                            args.src: src.strip(),
+                            args.tgt: tgt.strip()
+                        } 
+                        }
+                        f_w.write(cur_sample)
+                        sampled_indices.pop(0)
+                        if len(sampled_indices) == 0:
+                            break
+                    cur_idx += 1
+                    src = f_src.readline()
+                    tgt = f_tgt.readline()
+
 
 def main():
     parser = argparse.ArgumentParser()

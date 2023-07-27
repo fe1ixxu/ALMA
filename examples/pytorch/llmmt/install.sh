@@ -24,6 +24,7 @@ pip install einops
 pip install wandb
 pip install zstandard
 pip install accelerate==0.20.3
+pip install jsonlines
 
 # install eval env
 conda create -n comet python=3.8
