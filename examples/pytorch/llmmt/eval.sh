@@ -1,9 +1,9 @@
-TEST_PAIRS=${1:-"en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
-OUTPUT_DIR=/mnt/sdrgmainz01wus2/t-haoranxu/results/zero-shot-llmmt-beam5/mpt-7b-bzeval/
+TEST_PAIRS=${1:-"en-de,en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
+OUTPUT_DIR=${2}
 export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 accelerate launch --config_file deepspeed_eval_config.yaml \
     run_clm.py \
-    --model_name_or_path mosaicml/mpt-7b \
+    --model_name_or_path meta-llama/Llama-2-7b-hf \
     --do_predict \
     --low_cpu_mem_usage \
     --language_pairs ${TEST_PAIRS} \
@@ -15,8 +15,7 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --max_source_length 256 \
     --fp16 \
     --seed 42 \
-    --num_beams 5 \
-    --overwrite_output_dir 
+    --num_beams 5 
 # exit
 source /home/aiscuser/anaconda3/bin/activate comet
 for pair in ${TEST_PAIRS//,/ }; do
@@ -41,7 +40,9 @@ for pair in ${TEST_PAIRS//,/ }; do
     fi 
     cat ${output_path}.bleu
     comet-score -s ${src_path} -t ${output_path} -r ${tgt_path} --batch_size 256 > ${output_path}.comet 
+    comet-score -s ${src_path} -t ${output_path} -r ${tgt_path} --batch_size 256 --model /mnt/sdrgmainz01wus2/t-haoranxu/comet_models/wmt22-cometkiwi-da/checkpoints/model.ckpt > ${output_path}.comet-kiwi 
     tail -n 1 ${output_path}.comet
+    tail -n 1 ${output_path}.comet-kiwi
 done
 
 for pair in ${TEST_PAIRS//,/ }; do
@@ -51,4 +52,5 @@ for pair in ${TEST_PAIRS//,/ }; do
     output_path=${OUTPUT_DIR}/test-${src}-${tgt}
     cat ${output_path}.bleu
     tail -n 1 ${output_path}.comet
+    tail -n 1 ${output_path}.comet-kiwi
 done
