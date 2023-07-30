@@ -16,7 +16,7 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --fp16 \
     --seed 42 \
     --num_beams 5 \
-    --overwite_cache
+    --overwrite_cache
 
 if [[ ${TEST_PAIRS} == *zh-en* ]]; then
     accelerate launch --config_file deepspeed_eval_config.yaml \
@@ -34,7 +34,7 @@ if [[ ${TEST_PAIRS} == *zh-en* ]]; then
         --fp16 \
         --seed 42 \
         --num_beams 5 \
-        --overwite_cache
+        --overwrite_cache
 
 fi
 
