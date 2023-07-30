@@ -624,7 +624,7 @@ def main():
                     print("------------------------")
                     print(decoded_preds[idx])
 
-                with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}"), "w", encoding="utf-8") as f:
+                with open(os.path.join(training_args.output_dir, f"test-{src_lang}-{tgt_lang}{data_args.suffix_eval_file}"), "w", encoding="utf-8") as f:
                     suffix = get_key_suffix(tgt_lang, data_args)
                     if len(shots_eval_dict) != 0:
                         split_idx = len(shots_eval_dict[lg_pair]) + 1

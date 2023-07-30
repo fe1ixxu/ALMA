@@ -256,6 +256,12 @@ class DataTrainingArguments:
             "help": "Usung interleave to concatenate datasets, with probabilities of p1,p2,p3,..., splited by commas"
         },
     )
+    suffix_eval_file: str = field(
+        default="",
+        metadata={
+            "help": "The suffix for the eval file: test-src-tgt'suffix_eval_file'"
+        },
+    )
 
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
     # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})
