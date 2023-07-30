@@ -16,8 +16,7 @@
 ########################################
 ########################################
 exp_name=${1:-""}
-suffix=${2:-"1000"}
-pairs=${3:-"en-de,en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
+pairs=${2:-"en-de,en-cs,en-is,en-zh,en-ja,en-ru,en-uk,en-ha,de-en,cs-en,is-en,zh-en,ja-en,ru-en,uk-en,ha-en"}
 export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 export WANDB_PROJECT=LLMMT-pre
 export WANDB_NAME=${exp_name}
@@ -32,7 +31,6 @@ accelerate launch --config_file deepspeed_train_config.yaml \
      run_clm.py \
     --model_name_or_path  /mnt/sdrgmainz01wus2/t-haoranxu/checkpoints/llmmt-pre/llama-2-13b-oscar-6lang-600K/checkpoint-16000/ \
     --mmt_data_path  ${DATASET} \
-    --suffix ${suffix} \
     --do_train \
     --do_eval \
     --do_predict \
