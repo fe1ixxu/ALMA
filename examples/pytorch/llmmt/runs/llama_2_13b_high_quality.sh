@@ -29,7 +29,7 @@ DATASET=/home/aiscuser/wmt-flores200-dev-test/
 #/mnt/sdrgmainz01wus2/t-haoranxu/checkpoints/llmmt-pre/llama-2-7b-oscar-6lang-600K/checkpoint-16000/
 accelerate launch --config_file deepspeed_train_config.yaml \
      run_clm.py \
-    --model_name_or_path  /mnt/sdrgmainz01wus2/t-haoranxu/checkpoints/llmmt-pre/llama-2-13b-oscar-6lang-600K/checkpoint-16000/ \
+    --model_name_or_path  /mnt/sdrgmainz01wus2/t-haoranxu/checkpoints/llmmt-pre/llama-2-13b-oscar-6lang-600K/checkpoint-24000/ \
     --mmt_data_path  ${DATASET} \
     --do_train \
     --do_eval \
@@ -66,6 +66,24 @@ accelerate launch --config_file deepspeed_train_config.yaml \
     --ddp_timeout 999999 \
     --report_to wandb \
     --overwrite_cache 
+
+if [[ ${TEST_PAIRS} == *zh-en* ]]; then
+    accelerate launch --config_file deepspeed_eval_config.yaml \
+        run_clm.py \
+        --model_name_or_path meta-llama/Llama-2-13b-hf \
+        --do_predict \
+        --low_cpu_mem_usage \
+        --language_pairs zh-en \
+        --mmt_data_path /home/aiscuser/filtered_wmt22/ \
+        --per_device_eval_batch_size 4 \
+        --output_dir ${OUTPUT_DIR} \
+        --predict_with_generate \
+        --max_new_tokens 256 \
+        --max_source_length 512 \
+        --fp16 \
+        --seed 42 \
+        --num_beams 1
+fi
 
 source /home/aiscuser/anaconda3/bin/activate comet
 for pair in ${pairs//,/ }; do

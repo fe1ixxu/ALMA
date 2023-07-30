@@ -3,7 +3,7 @@ OUTPUT_DIR=${2}
 export HF_DATASETS_CACHE="/home/aiscuser/huggingface_cache/datasets"
 accelerate launch --config_file deepspeed_eval_config.yaml \
     run_clm.py \
-    --model_name_or_path meta-llama/Llama-2-7b-hf \
+    --model_name_or_path meta-llama/Llama-2-13b-hf \
     --do_predict \
     --low_cpu_mem_usage \
     --language_pairs ${TEST_PAIRS} \
@@ -15,8 +15,26 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --max_source_length 256 \
     --fp16 \
     --seed 42 \
-    --num_beams 5 
-# exit
+    --num_beams 1
+
+if [[ ${TEST_PAIRS} == *zh-en* ]]; then
+    accelerate launch --config_file deepspeed_eval_config.yaml \
+        run_clm.py \
+        --model_name_or_path meta-llama/Llama-2-13b-hf \
+        --do_predict \
+        --low_cpu_mem_usage \
+        --language_pairs zh-en \
+        --mmt_data_path /home/aiscuser/filtered_wmt22/ \
+        --per_device_eval_batch_size 4 \
+        --output_dir ${OUTPUT_DIR} \
+        --predict_with_generate \
+        --max_new_tokens 256 \
+        --max_source_length 512 \
+        --fp16 \
+        --seed 42 \
+        --num_beams 1
+fi
+
 source /home/aiscuser/anaconda3/bin/activate comet
 for pair in ${TEST_PAIRS//,/ }; do
     src=$(echo ${pair} | cut -d "-" -f 1)
