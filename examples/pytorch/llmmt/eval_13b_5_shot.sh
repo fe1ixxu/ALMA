@@ -18,7 +18,8 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --seed 42 \
     --num_beams 1 \
     --suffix_eval_file ${EVAL_SUFFIX} \
-    --few_shot_eval_path  /home/aiscuser/gpt-MT/data-shots/QR/5-shot/
+    --few_shot_eval_path  /home/aiscuser/gpt-MT/data-shots/QR/5-shot/ \
+    --overwite_cache
 
 source /home/aiscuser/anaconda3/bin/activate comet
 for pair in ${TEST_PAIRS//,/ }; do

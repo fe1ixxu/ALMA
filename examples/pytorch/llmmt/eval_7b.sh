@@ -15,7 +15,8 @@ accelerate launch --config_file deepspeed_eval_config.yaml \
     --max_source_length 256 \
     --fp16 \
     --seed 42 \
-    --num_beams 5 
+    --num_beams 5 \
+    --overwite_cache
 
 if [[ ${TEST_PAIRS} == *zh-en* ]]; then
     accelerate launch --config_file deepspeed_eval_config.yaml \
@@ -32,7 +33,9 @@ if [[ ${TEST_PAIRS} == *zh-en* ]]; then
         --max_source_length 512 \
         --fp16 \
         --seed 42 \
-        --num_beams 5 
+        --num_beams 5 \
+        --overwite_cache
+
 fi
 
 source /home/aiscuser/anaconda3/bin/activate comet
