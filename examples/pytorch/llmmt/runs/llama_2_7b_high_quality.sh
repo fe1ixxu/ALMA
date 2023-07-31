@@ -77,7 +77,7 @@ if [[ ${pairs} == *zh-en* ]]; then
         --low_cpu_mem_usage \
         --language_pairs zh-en \
         --mmt_data_path /home/aiscuser/filtered_wmt22/ \
-        --per_device_eval_batch_size 4 \
+        --per_device_eval_batch_size 2 \
         --output_dir ${OUTPUT_DIR} \
         --predict_with_generate \
         --max_new_tokens 256 \
