@@ -3,8 +3,11 @@
 cd ../../../../
 git clone https://github.com/microsoft/gpt-MT.git
 git clone https://github.com/huggingface/peft.git
-echo "Copying data from /mnt/sdrgmainz01wus2/t-haoranxu/filtered_wmt22/...."
+echo "Copying WMT data from /mnt/sdrgmainz01wus2/t-haoranxu/filtered_wmt22/.... It may take a while..."
 cp -r /mnt/sdrgmainz01wus2/t-haoranxu/filtered_wmt22/ .
+echo "Copying finished"
+echo "Copying human-written data from  /mnt/sdrgmainz01wus2/t-haoranxu/wmt-flores200-dev-test/...."
+cp -r /mnt/sdrgmainz01wus2/t-haoranxu/wmt-flores200-dev-test/ /home/aiscuser/
 echo "Copying finished"
 # install virtual env
 conda create -n llmmt python=3.8
