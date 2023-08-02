@@ -14,7 +14,7 @@ conda create -n llmmt python=3.8
 source /home/aiscuser/anaconda3/bin/activate llmmt
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.4.2
 cd LLMMT; pip install -e ./; cd ..
-cd peft; pip install -e ./; cd ..
+cd peft; git checkout b10a8cedf612e3994dc67fe8dad2a40c9076bcd4; pip install -e ./; cd ..
 pip install sentencepiece
 pip install sacrebleu
 pip install sacrebleu[ja]
