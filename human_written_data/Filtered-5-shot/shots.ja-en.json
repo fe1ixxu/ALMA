@@ -1,0 +1,22 @@
+[
+    {
+        "source": "\u7269\u7406\u7684\u30bb\u30ad\u30e5\u30ea\u30c6\u30a3\u3068\u74b0\u5883\u5236\u5fa1 Claris\u3067\u306f\u3001\u30db\u30b9\u30c6\u30a3\u30f3\u30b0\u30b5\u30fc\u30d3\u30b9\u306b Amazon Web Services(AWS)\u3092\u5229\u7528\u3057\u3066\u3044\u307e\u3059\u3002",
+        "target": "Physical Security and Environmental Controls Claris uses Amazon Web Services (AWS) for its hosting needs."
+    },
+    {
+        "source": "SOC \u306f\u3001\u91cd\u5927\u306a\u640d\u5bb3\u304c\u767a\u751f \u3059\u308b\u524d\u306b\u3001\u653b\u6483\u3092\u5148\u53d6\u308a\u3057\u305f\u308a\u3001\u89e3\u6c7a\u3057\u305f\u308a\u3059\u308b\u305f\u3081\u306e\u30b9\u30de\u30fc \u30c8\u3067\u52b9\u7387\u7684\u306a\u691c\u51fa\u3001\u8abf\u67fb\u3001\u5fdc\u7b54\u6a5f\u80fd\u3092\u5099\u3048\u308b\u5fc5\u8981\u304c\u3042\u308a\u307e\u3059\u3002",
+        "target": "SOCs need to be empowered with smart and efficient detect, investigate, and respond capabilities to preempt attacks or resolve them before significant damage occurs."
+    },
+    {
+        "source": "\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u3059\u308b\u30d5\u30a1\u30a4\u30eb\u306e\u66f8\u5f0f (CAB\u3001XPI\u3001\u307e\u305f\u306f CRX ) \u306f\u30af\u30e9\u30a4\u30a2\u30f3\u30c8\u306e\u30d6\u30e9\u30a6\u30b6\u30fc\u306b\u3088\u308a\u7570\u306a\u308a\u307e\u3059\u3002",
+        "target": "The format of the file that is downloaded (CAB, XPI, or CRX) will depend on the client's browser."
+    },
+    {
+        "source": "Citrix ADM \u30c7\u30a3\u30b6\u30b9\u30bf\u30ea\u30ab\u30d0\u30ea(DR)\u6a5f\u80fd\u306f\u3001\u9ad8\u53ef\u7528\u6027\u30e2\u30fc\u30c9\u3067\u5c55\u958b\u3055\u308c\u305fCitrix ADM \u5b8c\u5168\u306a\u30b7\u30b9\u30c6\u30e0\u30d0\u30c3\u30af\u30a2\u30c3\u30d7\u3068\u30ea\u30ab\u30d0\u30ea\u6a5f\u80fd\u3092\u63d0\u4f9b\u3057\u307e\u3059\u3002",
+        "target": "The Citrix ADM disaster recovery (DR) feature provides full system backup and recovery capabilities for Citrix ADM deployed in high availability mode."
+    },
+    {
+        "source": "\u3053\u306e ASIC \u304a\u3088\u3073 SoC \u306e\u5b8c\u5168\u306a\u308b\u30bd\u30ea\u30e5\u30fc\u30b7\u30e7\u30f3\u306f\u3001\u30cf\u30fc\u30c9\u30a6\u30a7\u30a2\u30d9\u30fc\u30b9\u3067\u3001\u6700\u5927 4096 x 4096 \u307e\u3067\u306eISO/IEC 14496-10 Advanced Video Coding Standard (MPEG-4 Part 10)\u898f\u683c\u306b\u5b8c\u5168\u6e96\u62e0\u3057\u305f\u30c7\u30b3\u30fc\u30c9\u304c\u53ef\u80fd\u3067\u3059\u3002",
+        "target": "The perfect solution for ASICs and SoCs is hardware-based and capable of full ISO/IEC 14496-10 Advanced Video Coding Standard (MPEG-4 Part 10) compliance decoding up to a resolution of 4096 x 4096."
+    }
+]

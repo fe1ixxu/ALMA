@@ -1,0 +1,22 @@
+[
+    {
+        "source": "About ADI Corporate Information Executive Team Vincent Roche Attention Internet Explorer users: Analog.com no longer supports IE 11.",
+        "target": "ADI\u306b\u3064\u3044\u3066 \u4f1a\u793e\u6982\u8981 \u7d4c\u55b6\u9663 Vincent Roche Internet Explorer\u3092\u304a\u4f7f\u3044\u306e\u304a\u5ba2\u69d8\u3078\u306e\u6ce8\u610f: Analog.com\u30b5\u30a4\u30c8\u306f\u3001IE11\u3092\u30b5\u30dd\u30fc\u30c8\u3057\u3066\u304a\u308a\u307e\u305b\u3093\u3002"
+    },
+    {
+        "source": "Simplify performance tuning and troubleshooting with Azure SQL Database \u2013 Azure \u30d6\u30ed\u30b0 \u307e\u3068\u3081",
+        "target": "Azure SQL Database \u3067\u30d1\u30d5\u30a9\u30fc\u30de\u30f3\u30b9\u306e\u30c1\u30e5\u30fc\u30cb\u30f3\u30b0\u3068\u30c8\u30e9\u30d6\u30eb\u30b7\u30e5\u30fc\u30c6\u30a3\u30f3\u30b0\u3092\u7c21\u7d20\u5316 \u2013 Azure \u30d6\u30ed\u30b0 \u307e\u3068\u3081"
+    },
+    {
+        "source": "Ant Financial has so far raised a staggering $14 billion this year alone in Series C funding.",
+        "target": "Ant Financial\u306f\u3053\u308c\u307e\u3067\u3001\u30b7\u30ea\u30fc\u30baC\u306e\u8cc7\u91d1\u8abf\u9054\u3067\u4eca\u5e74\u3060\u3051\u3067$ 14\u5104\u3092\u9a5a\u7570\u7684\u306b\u4e0a\u3052\u3066\u3044\u307e\u3059\u3002"
+    },
+    {
+        "source": "On Windows 8.1, completely uninstalling DirectX 9, 10 and 11 without consequences is possible only if they are not installed during a system update.",
+        "target": "Windows 8.1\u3067\u306f\u3001DirectX 9\u300110\u3001\u304a\u3088\u307311\u3092\u30b7\u30b9\u30c6\u30e0\u306e\u66f4\u65b0\u4e2d\u306b\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3057\u306a\u3044\u5834\u5408\u306b\u306e\u307f\u3001\u5f71\u97ff\u3092\u4e0e\u3048\u308b\u3053\u3068\u306a\u304f\u5b8c\u5168\u306b\u30a2\u30f3\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u3067\u304d\u307e\u3059\u3002"
+    },
+    {
+        "source": "At 6:16 pm the entire cloudbank is illuminated, but by 6:40 pm only the top of the cloudbank is illuminated.",
+        "target": "\u5348\u5f8c6:16\u306b\u3001\u96f2\u306e\u571f\u624b\u5168\u4f53\u304c\u7167\u3089\u3055\u308c\u307e\u3059\u304c\u3001\u5348\u5f8c6:40\u307e\u3067\u306b\u306f\u3001\u96f2\u306e\u571f\u624b\u306e\u9802\u70b9\u3060\u3051\u304c\u7167\u3089\u3055\u308c\u307e\u3059\u3002"
+    }
+]
