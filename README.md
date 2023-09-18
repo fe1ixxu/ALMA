@@ -1,4 +1,4 @@
-This repository houses our state-of-the-art LLM-based translation models, **ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator). ALMA adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures superior translation accuracy and performance.
+**ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is an LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures superior translation accuracy and performance.
 
 # Contents
 - [Download ALMA Models](#download-alma-models-)
@@ -44,6 +44,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoModelForCausalLM
 from transformers import LlamaTokenizer
+
 # Load base model and LoRA weights
 model = AutoModelForCausalLM.from_pretrained("haoranxu/ALMA-13B-Pretrain", torch_dtype=torch.float16, device_map="auto")
 model = PeftModel.from_pretrained(model, "haoranxu/ALMA-13B-Pretrain-LoRA")
