@@ -1,6 +1,6 @@
 **ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is an LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures superior translation accuracy and performance.
 
-# Contents
+# Contents 📄
 - [Download ALMA Models](#download-alma-models-)
 - [Environment Setup](#environment-setup-)
 - [Evaluation](#evaluation-)
