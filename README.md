@@ -1,6 +1,5 @@
 This repository houses our state-of-the-art LLM-based translation models, **ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator). ALMA adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures superior translation accuracy and performance.
 
-![image](alma.jpg)
 # Contents
 - [Download ALMA Models](#download-alma-models-)
 - [Environment Setup](#environment-setup-)
@@ -14,6 +13,10 @@ This repository houses our state-of-the-art LLM-based translation models, **ALMA
   - Also support LLaMA-1, LLaMA-2, OPT, Faclon, BLOOM, MPT
   - LoRA Fine-tuning
   - Monolingual data fine-tuning, parallel data fine-tuning
+
+<p align="center">
+<img src="alma.jpg" width="700" height="560">
+</p>
 
 # Download ALMA Models 🚀
 
