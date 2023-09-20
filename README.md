@@ -26,9 +26,9 @@ We release four translation models presented in the paper:
 - **ALMA-13B**: Full-weight Fine-tune LLaMA-2-7B on 12B monolingual tokens and then **Full-weight** fine-tune on human-written parallel data
 - **ALMA-13B-LoRA** (Our best system): Full-weight Fine-tune LLaMA-2-7B on 12B monolingual tokens and then **LoRA** fine-tune on human-written parallel data
   
-We have also provided the translation outputs from our best system, ALMA-13B-LoRA, in the outputs/ours/ directory. These outputs can be directly accessed and used for subsequent evaluations.
+We have also provided the translation outputs from our best system, ALMA-13B-LoRA, in the `outputs/ours/` directory. These outputs can be directly accessed and used for subsequent evaluations.
 
-Model checkpoints are released at huggingface:
+Model checkpoints are released at huggingface (**will be public soon until the approval from the Microsoft**):
 |     Models    | Base Model Link | LoRA Link |
 |:-------------:|:---------------:|:---------:|
 |    ALMA-7B    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
@@ -199,4 +199,4 @@ The data format in json files  must be:
 ```
 Within this directory, there are two additional subfolders specifically designed for few-shot in-context learning:
 - `Filtered-5-shot`: This contains the "filtered shots" as referenced in the paper.
-- `HR-5-shot`: This contains the "randomly extracted human-written data" mentioned in the paper.
+- `HW-5-shot`: This contains the "randomly extracted human-written data" mentioned in the paper.
