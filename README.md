@@ -28,7 +28,7 @@ We release four translation models presented in the paper:
   
 We have also provided the translation outputs from our best system, ALMA-13B-LoRA, in the `outputs/ours/` directory. These outputs can be directly accessed and used for subsequent evaluations.
 
-Model checkpoints are released at huggingface (**will be public soon until the approval from the Microsoft**):
+Model checkpoints are released at huggingface:
 |     Models    | Base Model Link | LoRA Link |
 |:-------------:|:---------------:|:---------:|
 |    ALMA-7B    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
