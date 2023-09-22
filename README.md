@@ -120,7 +120,7 @@ accelerate launch --config_file configs/deepspeed_eval_config.yaml \
     --overwrite_cache \
     --overwrite_output_dir
 ```
-The generated outputs will be saved in the `your_output_dir directory`. The translation file for the `en→cs` direction is named `test-en-cs`, and file for the cs→en direction is `test-cs-en`.
+The generated outputs will be saved in the `your_output_dir`. The translation file for the `en→cs` direction is named `test-en-cs`, and the file for the cs→en direction is `test-cs-en`.
 We have prepared a bash file for the user to easily run the evaluation:
 ```
 bash evals/alma_7b.sh ${your_output_dir} ${test_pairs}
