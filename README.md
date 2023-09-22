@@ -127,7 +127,7 @@ bash evals/alma_7b.sh ${your_output_dir} ${test_pairs}
 ```
 The variable `${test_pairs}` denotes the translation directions you wish to evaluate. It supports testing multiple directions at once. For example, you can use `de-en,en-de,en-cs,cs-en`. Once the bash script completes its execution, both the BLEU scores and COMET results will be automatically displayed.
 
-**Note that this will perform data-parallel evaluation supported by deepspeed: that is, placing a single full copy of your model onto each available GPU and splitting batches across GPUs to evaluate on K GPUs K times faster than on one** For those with limited GPU memory, we offer an alternative method. This allows you to run the process by distributing a single model across multiple GPUs:
+**Note that this will perform data-parallel evaluation supported by deepspeed: that is, placing a single full copy of your model onto each available GPU and splitting batches across GPUs to evaluate on K GPUs K times faster than on one**. For those with limited GPU memory, we offer an alternative method. This allows you to run the process by distributing a single model across multiple GPUs:
 ```
 bash evals/alma_7b_no_parallel.sh ${your_output_dir} ${test_pairs}
 ```
@@ -175,7 +175,7 @@ Once the monolingual data fine-tuning is complete, proceed to the parallel data 
 ```
 bash runs/parallel_ft.sh ${your_output_dir} $training_pairs$
 ```
-where $training_pairs$ is the translation directions you considered. The default is all 10 directions: `de-en,cs-en,is-en,zh-en,ru-en,en-de,en-cs,en-is,en-zh,en-ru`.
+where `training_pairs` is the translation directions you considered. The default is all 10 directions: `de-en,cs-en,is-en,zh-en,ru-en,en-de,en-cs,en-is,en-zh,en-ru`.
 
 ### Parallel Data Fine-Tuning (LoRA)
 In Stage 2, there's also an option to employ LoRA for fine-tuning on the parallel data. To do so, execute the following command:
