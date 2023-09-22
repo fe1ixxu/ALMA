@@ -1,4 +1,15 @@
-**ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is an LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures superior translation accuracy and performance.
+**ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is an LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance. 
+Please find more details in our [paper](https://arxiv.org/abs/2309.11674).
+```
+@misc{xu2023paradigm,
+      title={A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models}, 
+      author={Haoran Xu and Young Jin Kim and Amr Sharaf and Hany Hassan Awadalla},
+      year={2023},
+      eprint={2309.11674},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
 
 # Contents 📄
 - [Download ALMA Models](#download-alma-models-)
