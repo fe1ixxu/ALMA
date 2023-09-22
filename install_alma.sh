@@ -15,8 +15,8 @@ pip install zstandard
 pip install accelerate==0.21.0
 pip install jsonlines
 
-# install eval env
-conda create -n comet python=3.8
-source /home/aiscuser/anaconda3/bin/activate comet
-pip install unbabel-comet
-pip install sacrebleu[ja]
+# # install eval env
+# conda create -n comet python=3.8
+# source /home/aiscuser/anaconda3/bin/activate comet
+# pip install unbabel-comet
+# pip install sacrebleu[ja]
