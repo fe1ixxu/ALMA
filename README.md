@@ -1,5 +1,5 @@
 **ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is a many-to-many LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance. 
-Please find more details in our [paper](https://arxiv.org/abs/2309.11674).
+Please find more details in our [paper](https://arxiv.org/abs/2309.11674) or the [summary](https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/) of the paper.
 ```
 @misc{xu2023paradigm,
       title={A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models}, 
