@@ -1,4 +1,4 @@
-**ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is an LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance. 
+**ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is a many-to-many LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance. 
 Please find more details in our [paper](https://arxiv.org/abs/2309.11674).
 ```
 @misc{xu2023paradigm,
@@ -70,6 +70,13 @@ with torch.no_grad():
     generated_ids = model.generate(input_ids=input_ids, num_beams=5, max_new_tokens=20, do_sample=True, temperature=0.6, top_p=0.9)
 outputs = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
 print(outputs)
+```
+
+The general translation prompt is:
+```
+Translate this from <source language name> into <target language name>:
+<source language name>: <source language sentence>
+<target language name>:
 ```
 
 # Environment Setup 🔧
