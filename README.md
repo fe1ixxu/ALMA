@@ -1,4 +1,20 @@
+<p align="center">
+    <img alt="ALMA" src="alma_title.png" width="500" height="240">
+</p>
+
+<p align="center">
+<a href="LICENSE" alt="MIT License"><img src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
+<a href="https://arxiv.org/abs/2309.11674" alt="Paper Link"><img src="https://img.shields.io/badge/paper-link-green" /></a>
+<a href="https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/"><img alt="Summary Link" src="https://img.shields.io/badge/summary-link-pink" /></a>
+<a href="https://www.microsoft.com/en-us/research/" alt="MSlogo"><img src="https://img.shields.io/badge/Johns_Hopkins_University-blue?" /></a>
+<a href="https://www.microsoft.com/en-us/research/" alt="MSlogo"><img src="https://img.shields.io/badge/Microsoft-orchid?logo=microsoft" /></a>
+<a href="https://twitter.com/fe1ixxu">
+  <img src="https://img.shields.io/twitter/follow/haoranxu?style=social&logo=twitter"
+      alt="follow on Twitter"></a>
+</p>
+
 **ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is a many-to-many LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance. 
+
 Please find more details in our [paper](https://arxiv.org/abs/2309.11674) or the [summary](https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/) of the paper.
 ```
 @misc{xu2023paradigm,

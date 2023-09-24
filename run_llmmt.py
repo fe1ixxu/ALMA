@@ -1,25 +1,5 @@
 #!/usr/bin/env python
 # coding=utf-8
-# Copyright 2020 The HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""
-Fine-tuning the library models for causal language modeling (GPT, GPT-2, CTRL, ...) on a text file or a dataset.
-
-Here is the full list of checkpoints on the hub that can be fine-tuned by this script:
-https://huggingface.co/models?filter=text-generation
-"""
-# You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
 
 import logging
 import copy
@@ -66,10 +46,6 @@ from utils.trainer_llmmt import LlmmtTrainer
 from utils.utils import LANG_TABLE, load_mmt_dataset, get_preprocessed_data, clean_outputstring, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
-# Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-# check_min_version("4.30.0.dev0")
-
-require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +69,7 @@ def main():
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
-    send_example_telemetry("run_clm", model_args, data_args)
+    send_example_telemetry("run_llmmt", model_args, data_args)
 
     # Setup logging
     logging.basicConfig(
@@ -120,10 +96,7 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
-    # Get the datasets: you can either provide your own CSV/JSON/TXT training and evaluation files (see below)
-    # or just provide the name of one of the public datasets available on the hub at https://huggingface.co/datasets/
-    # (the dataset will be downloaded automatically from the datasets Hub).
-    
+    # Get the datasets
     pairs = set(data_args.language_pairs.split(","))
     train_raw_data, valid_raw_data, test_raw_data = None, None, None
     if data_args.mmt_data_path:
@@ -156,7 +129,8 @@ def main():
                 )['train']
             )
         train_raw_data = interleave_datasets(train_raw_data, probabilities=interleave_probs, seed=training_args.seed, stopping_strategy="all_exhausted")
-    ## load tokenizer
+    
+    # load tokenizer
     set_seed(training_args.seed)
     tokenizer = load_tokenizer(data_args, model_args, training_args, logger)
     if data_args.use_ul2:
@@ -174,7 +148,7 @@ def main():
     train_datasets, eval_datasets, test_datasets = get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, tokenizer, shots_eval_dict, data_args, training_args, model_args)
     metric = evaluate.load("sacrebleu")
 
-    ## Load model
+    # Load model
     model = load_model(data_args, model_args, training_args, tokenizer, logger)
     collate_fn = DataCollatorForUL2(model, tokenizer) if data_args.use_ul2 else default_data_collator
     
