@@ -77,7 +77,7 @@ model = AutoModelForCausalLM.from_pretrained("haoranxu/ALMA-13B-Pretrain", torch
 model = PeftModel.from_pretrained(model, "haoranxu/ALMA-13B-Pretrain-LoRA")
 tokenizer = LlamaTokenizer.from_pretrained("haoranxu/ALMA-13B-Pretrain", padding_side='left')
 
-# Add the source setence into the prompt template
+# Add the source sentence into the prompt template
 prompt="Translate this from Chinese to English:\nChinese: 我爱机器翻译。\nEnglish:"
 input_ids = tokenizer(prompt, return_tensors="pt", padding=True, max_length=40, truncation=True).input_ids.cuda()
 
