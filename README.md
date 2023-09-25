@@ -238,11 +238,11 @@ Within this directory, there are two additional subfolders specifically designed
 
 # FAQ ❓
 ### What language directions do ALMA support?
-Currently, ALMA supports 10 directions: English↔German, Englishs↔Czech, Englishs↔Icelandic, Englishs↔Chinese, Englishs↔Russian. However, it may suprise us on other directions :)
+Currently, ALMA supports 10 directions: English↔German, Englishs↔Czech, Englishs↔Icelandic, Englishs↔Chinese, Englishs↔Russian. However, it may surprise us in other directions :)
 
 ### When should I stop fine-tuning at stage 1?
 Our 7B and 13B models are trained on 20B and 12B tokens, respectively. However, as indicated in the paper, fine-tuning 1B tokens should boost the performance substantially. The steps required to fine-tune 1 billion tokens also vary based on your batch size. In our case, the batch size is calculated as follows: 16 GPUs * 4 (batch size per GPU) * 4 (gradient accumulation steps) = 256. With a sequence length of 512, we need approximately 8,000 steps to train on 1 billion tokens, calculated as 10^9 / (256*512) ≈8000 steps. However, you may choose to fine-tune more steps to get better performance.
 
 ### How to decide the interleave probability at stage 1?
-Please find the reasons for interleave probability selection for stage 1 in Appendix D.1 in the (paper)[https://arxiv.org/pdf/2309.11674.pdf]!
+Please find the reasons for interleave probability selection for stage 1 in Appendix D.1 in the [paper](https://arxiv.org/pdf/2309.11674.pdf)!
 
