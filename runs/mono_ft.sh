@@ -22,7 +22,7 @@ accelerate launch --main_process_port ${port} --config_file configs/deepspeed_tr
     --warmup_ratio 0.01 \
     --ignore_pad_token_for_loss \
     --ignore_prompt_token_for_loss \
-    --per_device_train_batch_size 1 \
+    --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
     --save_strategy steps \
     --save_steps 2000 \
