@@ -33,7 +33,7 @@ Please find more details in our [paper](https://arxiv.org/abs/2309.11674) or the
 - [Evaluation](#evaluation-)
 - [Training](#training-)
 - [Data Information](#data-information-)
-- [FAQ](#faq-)
+- [FAQs](#faqs-)
 
 :star: Supports :star:
   - AMD and Nvidia Cards
@@ -236,7 +236,7 @@ Within this directory, there are two additional subfolders specifically designed
 - `Filtered-5-shot`: This contains the "filtered shots" as referenced in the paper.
 - `HW-5-shot`: This contains the "randomly extracted human-written data" mentioned in the paper.
 
-# FAQ ❓
+# FAQs ❓
 ### What language directions do ALMA support?
 Currently, ALMA supports 10 directions: English↔German, Englishs↔Czech, Englishs↔Icelandic, Englishs↔Chinese, Englishs↔Russian. However, it may surprise us in other directions :)
 
