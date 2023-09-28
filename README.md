@@ -51,8 +51,8 @@ Please find more details in our [paper](https://arxiv.org/abs/2309.11674) or the
 We release four translation models presented in the paper:
 - **ALMA-7B**: Full-weight Fine-tune LLaMA-2-7B on 20B monolingual tokens and then **Full-weight** fine-tune on human-written parallel data
 - **ALMA-7B-LoRA**: Full-weight Fine-tune LLaMA-2-7B on 20B monolingual tokens and then **LoRA** fine-tune on human-written parallel data
-- **ALMA-13B**: Full-weight Fine-tune LLaMA-2-7B on 12B monolingual tokens and then **Full-weight** fine-tune on human-written parallel data
-- **ALMA-13B-LoRA** (Our best system): Full-weight Fine-tune LLaMA-2-7B on 12B monolingual tokens and then **LoRA** fine-tune on human-written parallel data
+- **ALMA-13B**: Full-weight Fine-tune LLaMA-2-13B on 12B monolingual tokens and then **Full-weight** fine-tune on human-written parallel data
+- **ALMA-13B-LoRA** (Our best system): Full-weight Fine-tune LLaMA-2-13B on 12B monolingual tokens and then **LoRA** fine-tune on human-written parallel data
   
 We have also provided the translation outputs from our best system, ALMA-13B-LoRA, in the `outputs/ours/` directory. These outputs can be directly accessed and used for subsequent evaluations.
 
