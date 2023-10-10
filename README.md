@@ -1,13 +1,13 @@
 <p align="center">
-    <img alt="ALMA" src="alma_logo.png" width="500" height="166">
+    <img alt="ALMA" src="alma_logo.png" width="500" height="203">
 </p>
 
 <p align="center">
-<a href="LICENSE" alt="MIT License"><img src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
-<a href="https://arxiv.org/abs/2309.11674" alt="Paper Link"><img src="https://img.shields.io/badge/paper-link-green" /></a>
-<a href="https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/"><img alt="Summary Link" src="https://img.shields.io/badge/summary-link-pink" /></a>
-<a href="https://www.clsp.jhu.edu/" alt="jhu"><img src="https://img.shields.io/badge/Johns_Hopkins_University-blue?" /></a>
-<a href="https://www.microsoft.com/en-us/research/" alt="MSlogo"><img src="https://img.shields.io/badge/Microsoft-orchid?logo=microsoft" /></a>
+<a href="LICENSE" alt="MIT License"><img src="https://img.shields.io/badge/license-MIT-FAD689.svg" /></a>
+<a href="https://arxiv.org/abs/2309.11674" alt="Paper Link"><img src="https://img.shields.io/badge/paper-link-D9AB42" /></a>
+<a href="https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/"><img alt="Summary Link" src="https://img.shields.io/badge/summary-link-F6C555" /></a>
+<a href="https://www.clsp.jhu.edu/" alt="jhu"><img src="https://img.shields.io/badge/Johns_Hopkins_University-BEC23F" /></a>
+<a href="https://www.microsoft.com/en-us/research/" alt="MSlogo"><img src="https://img.shields.io/badge/Microsoft-B1B479?logo=microsoft" /></a>
 <a href="https://twitter.com/fe1ixxu">
   <img src="https://img.shields.io/twitter/follow/haoranxu?style=social&logo=twitter"
       alt="follow on Twitter"></a>
