@@ -2,6 +2,11 @@
     <img alt="ALMA" src="alma_logo.png" width="500" height="203">
 </p>
 
+<div align="center">
+    
+# ALMA: Advanced Language Model-based translator
+</div>
+
 <p align="center">
 <a href="LICENSE" alt="MIT License"><img src="https://img.shields.io/badge/license-MIT-FAD689.svg" /></a>
 <a href="https://arxiv.org/abs/2309.11674" alt="Paper Link"><img src="https://img.shields.io/badge/paper-link-D9AB42" /></a>
