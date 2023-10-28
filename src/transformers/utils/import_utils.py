@@ -302,7 +302,8 @@ def is_torch_bf16_gpu_available():
         return False
 
     import torch
-
+    if torch.cuda.get_device_name() == "AMD Instinct MI250X/MI250":
+        return True
     # since currently no utility function is available we build our own.
     # some bits come from https://github.com/pytorch/pytorch/blob/2289a12f21c54da93bf5d696e3f9aea83dd9c10d/torch/testing/_internal/common_cuda.py#L51
     # with additional check for torch version
