@@ -116,6 +116,16 @@ class ModelArguments:
             )
         },
     )
+
+    embedding_init_dir: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "The directory for embedding initialization matrices (both input and output)."
+            )
+        },
+    )
+
     def __post_init__(self):
         if self.config_overrides is not None and (self.config_name is not None or self.model_name_or_path is not None):
             raise ValueError(
