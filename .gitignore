@@ -1,0 +1,3 @@
+## Various cache's for huggingface models/datasets and python
+.cache/
+__pycache__/
