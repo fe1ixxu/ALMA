@@ -340,6 +340,18 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
     embedding_size = model.get_input_embeddings().weight.shape[0]
     if len(tokenizer) > embedding_size:
         model.resize_token_embeddings(len(tokenizer))
+    
+    # Embedding initlization for additional tokens
+    import numpy as np
+    if data_args.input_embeddings_dir:
+        input_embeddings = torch.from_numpy(np.load(data_args.input_embeddings_dir))
+        assert len(tokenizer) - embedding_size == input_embeddings.size()[0]
+        model.get_input_embeddings().weight.data[embedding_size:] = input_embeddings
+
+    if data_args.output_embeddings_dir:
+        output_embeddings = torch.from_numpy(np.load(data_args.output_embeddings_dir))
+        assert len(tokenizer) - embedding_size == input_embeddings.size()[0]
+        model.get_output_embeddings().weight.data[embedding_size:] = output_embeddings
 
     if model_args.use_peft:
         if model_args.peft_model_id:

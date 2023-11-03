@@ -117,13 +117,13 @@ class ModelArguments:
         },
     )
 
-    embedding_init_dir: Optional[str] = field(
+    input_embeddings_dir: Optional[str] = field(
         default=None,
-        metadata={
-            "help": (
-                "The directory for embedding initialization matrices (both input and output)."
-            )
-        },
+        metadata={"help": "Path to a numpy array file containing the additional input embeddings."},
+    )
+    output_embeddings_dir: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to a numpy array file containing the additional output embeddings."},
     )
 
     def __post_init__(self):
