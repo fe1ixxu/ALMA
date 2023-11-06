@@ -5,3 +5,7 @@ __pycache__/
 ## Model outputs and data
 outputs*/
 data/
+
+## Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
