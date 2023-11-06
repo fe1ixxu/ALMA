@@ -77,6 +77,7 @@ LANG_TABLE = {
     "uk": "Ukrainian",
     "ha": "Hausa",
     "ro": "Romanian",
+    "yo": "Yoruba",
 }
 
 ## Prefix and suffix for prompt in target language (only from English to target language if the target is non-English)
@@ -90,6 +91,7 @@ PREFIX = {
     "ru": "Переведите это с английского на русский:\nАнглийский: ",
     "uk": "Перекладіть це з англійської на українську:\nАнглійська: ",
     "ha": "Fassara wannan daga Turanci zuwa Hausa:\nTuranci: ",
+    "yo": "Jọwọ tumọ gbolohun yii lati Gẹẹsi si Yorùbá::\nGẹẹsi: ",
 }
 
 SUFFIX = {
@@ -103,6 +105,7 @@ SUFFIX = {
     "ru": "\nРусский:",
     "uk": "\nУкраїнська:",
     "ha": "\nHausa:",
+    "yo": "\nYorùbá:",
 }
 
 

@@ -1,0 +1,11 @@
+## Various cache's for huggingface models/datasets and python
+.cache/
+__pycache__/
+
+## Model outputs and data
+outputs*/
+data/
+
+## Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
