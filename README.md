@@ -20,7 +20,7 @@
 
 **ALMA** (**A**dvanced **L**anguage **M**odel-based Tr**A**nslator) is a many-to-many LLM-based translation model,  which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance.
 
-**ALMA-R (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our custom-built triplet preference data, which is also released at [huggingface dataset](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference). ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
+### **ALMA-R (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our custom-built triplet preference data, which is also released at [huggingface dataset](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference). ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
 
 The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 
@@ -30,7 +30,7 @@ The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA
 ⭐ Jan.16 2024 The ALMA paper: [A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models](https://arxiv.org/abs/2309.11674) has been accepted at ICLR 2024! Check out more details [here](https://openreview.net/forum?id=farT6XXntP)!
 
 # Contents 📄
-- [Download ALMA(-R) Models and Dataset](#download-alma(-r)-models-and-dataset-)
+- [Download ALMA(-R) Models and Dataset](#download-alma-r-models-and-dataset-🚀)
 - [Environment Setup](#environment-setup-)
 - [Evaluation](#evaluation-)
 - [Training](#training-)
@@ -76,7 +76,7 @@ Datasets used by ALMA and ALMA-R are also released at huggingface now (NEW!)
 |     Datasets    | Train / Validation| Test |
 |:-------------:|:---------------:|:---------:|
 |    Human-Written Parallel Data (ALMA)    |        [train and validation](https://huggingface.co/datasets/haoranxu/ALMA-Human-Parallel)        |     [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test)    |
-|  Triplet Preference Data |        [train](https://huggingface.co/datasets/haoranxu/WMT22-Test)        |   [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test) and [WMT'23](https://huggingface.co/datasets/haoranxu/WMT23-Test)   |
+|  Triplet Preference Data |        [train](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference)        |   [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test) and [WMT'23](https://huggingface.co/datasets/haoranxu/WMT23-Test)   |
 
 
 A quick start to use our best system (ALMA-13B-R) for translation. An example of translating "我爱机器翻译。" into English:
