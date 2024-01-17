@@ -20,12 +20,12 @@
 
 **ALMA** (**A**dvanced **L**anguage **M**odel-based Tr**A**nslator) is a many-to-many LLM-based translation model,  which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance.
 
-### **ALMA-R (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our [triplet preference data](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference) for preference learning. ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
+### **[ALMA-R](https://arxiv.org/abs/2401.08417) (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our [triplet preference data](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference) for preference learning. ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
 
 The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 
 # News 🌟
-⭐ Jan.16 2024 **ALMA-R** is Released! Please check more details with our new [paper](https://arxiv.org/pdf/2401.08417.pdf).
+⭐ Jan.16 2024 **ALMA-R** is Released! Please check more details with our new paper: [Contrastive Preference Optimization: Pushing the Boundaries of LLM Performance in Machine Translation](https://arxiv.org/abs/2401.08417).
 
 ⭐ Jan.16 2024 The ALMA paper: [A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models](https://arxiv.org/abs/2309.11674) has been accepted at ICLR 2024! Check out more details [here](https://openreview.net/forum?id=farT6XXntP)!
 
