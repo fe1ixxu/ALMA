@@ -46,4 +46,4 @@ accelerate launch --main_process_port ${port} --config_file configs/deepspeed_ev
     --overwrite_cache \
     --overwrite_output_dir 
 
-bash ./evals/eval_generation_wmt23.sh ${OUTPUT_DIR} ${TEST_PAIRS}
+bash ./evals/eval_generation_wmt23.sh ${OUTPUT_DIR} de-en,zh-en,ru-en,en-de,en-ru,en-zh

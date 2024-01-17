@@ -20,7 +20,7 @@
 
 **ALMA** (**A**dvanced **L**anguage **M**odel-based Tr**A**nslator) is a many-to-many LLM-based translation model,  which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance.
 
-### **ALMA-R (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our custom-built triplet preference data, which is also released at [huggingface dataset](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference). ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
+### **ALMA-R (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our [triplet preference data](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference) for preference learning. ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
 
 The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 
@@ -58,7 +58,7 @@ We release six translation models presented in the paper:
 - **ALMA-13B-LoRA**
 - **ALMA-13B-R (NEW!)**: Further LoRA fine-tuning upon ALMA-13B-LoRA with contrastive preference optimization (BEST MODEL!). 
   
-We have also provided the translation outputs from our best system, ALMA-13B-LoRA, in the `outputs/ours/` directory. These outputs can be directly accessed and used for subsequent evaluations.
+We have also provided the WMT'22 and WMT'23 translation outputs from ALMA-13B-LoRA and ALMA-13B-R in the `outputs` directory. These outputs also includes our outputs of baselines and can be directly accessed and used for subsequent evaluations.
 
 Model checkpoints are released at huggingface:
 |     Models    | Base Model Link | LoRA Link |
