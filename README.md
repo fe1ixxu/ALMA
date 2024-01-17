@@ -65,10 +65,10 @@ Model checkpoints are released at huggingface:
 |:-------------:|:---------------:|:---------:|
 |    ALMA-7B    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
 |  ALMA-7B-LoRA |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-7B-Pretrain-LoRA)     |
-|  ALMA-7B-R (NEW!) |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-R](https://huggingface.co/haoranxu/ALMA-7B-R)     |
+|  **ALMA-7B-R (NEW!)** |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-R](https://huggingface.co/haoranxu/ALMA-7B-R)     |
 |    ALMA-13B   |        [haoranxu/ALMA-13B](https://huggingface.co/haoranxu/ALMA-13B)        |     -     |
 | ALMA-13B-LoRA |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-13B-Pretrain-LoRA)     |
-| ALMA-13B-R (NEW!) |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-R](https://huggingface.co/haoranxu/ALMA-13B-R)     |
+| **ALMA-13B-R (NEW!)** |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-R](https://huggingface.co/haoranxu/ALMA-13B-R)     |
 
 **Note that `ALMA-7B-Pretrain` and `ALMA-13B-Pretrain` are NOT translation models. They only experience stage 1 monolingual fine-tuning (20B tokens for the 7B model and 12B tokens for the 13B model), and should be utilized in conjunction with their LoRA models.** 
 
@@ -128,7 +128,7 @@ bash install_alma.sh
 ```
 # Evaluation 💻
 ### Evaluation on ALMA-13B-R
-This is a quick start to evaluate our ALMA-13B-R model. To produce translation outputs for WMT'22 in both en→cs and cs→en directions (If you want to evaluate WMT'23 instead, simple pass `--override_test_data_path haoranxu/WMT23-Test`. Please look at `evals/alma_13b_r_wmt23.sh` as an example), run the following command:
+This is a quick start to evaluate our ALMA-13B-R model. To produce translation outputs for WMT'22 in both en→cs and cs→en directions (If you want to evaluate WMT'23 instead, simply pass `--override_test_data_path haoranxu/WMT23-Test`. Please look at `evals/alma_13b_r_wmt23.sh` as an example), run the following command:
 ```
 accelerate launch --config_file configs/deepspeed_eval_config_bf16.yaml \
     run_llmmt.py \
@@ -225,7 +225,7 @@ Within this directory, there are two additional subfolders specifically designed
 - `HW-5-shot`: This contains the "randomly extracted human-written data" mentioned in the paper.
 
 # FAQs ❓
-### What language directions do ALMA support?
+### What language directions do ALMA and ALMA-R support?
 Currently, ALMA supports 10 directions: English↔German, Englishs↔Czech, Englishs↔Icelandic, Englishs↔Chinese, Englishs↔Russian. However, it may surprise us in other directions :)
 
 ### When should I stop fine-tuning at stage 1?
