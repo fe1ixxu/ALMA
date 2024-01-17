@@ -18,22 +18,19 @@
       alt="follow on Twitter"></a>
 </p>
 
-**ALMA** (**A**dvanced **L**anguage **M**odel-based tr**A**nslator) is a many-to-many LLM-based translation model, which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance. 
+**ALMA** (**A**dvanced **L**anguage **M**odel-based Tr**A**nslator) is a many-to-many LLM-based translation model,  which adopts a new translation model paradigm: it begins with fine-tuning on monolingual data and is further optimized using high-quality parallel data. This two-step fine-tuning process ensures strong translation performance.
 
-Please find more details in our [paper](https://arxiv.org/abs/2309.11674) or the [summary](https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/) of the paper.
-```
-@misc{xu2023paradigm,
-      title={A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models}, 
-      author={Haoran Xu and Young Jin Kim and Amr Sharaf and Hany Hassan Awadalla},
-      year={2023},
-      eprint={2309.11674},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
-}
-```
+**ALMA-R (NEW!)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our custom-built triplet preference data, which is also released at [huggingface dataset](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference). ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
+
+The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
+
+# News 🌟
+⭐ Jan.16 2024 **ALMA-R** is Released! Please check more details with our new [paper](https://arxiv.org/pdf/2401.08417.pdf).
+
+⭐ Jan.16 2024 The ALMA paper: [A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models](https://arxiv.org/abs/2309.11674) has been accepted at ICLR 2024! Check out more details [here](https://openreview.net/forum?id=farT6XXntP)!
 
 # Contents 📄
-- [Download ALMA Models](#download-alma-models-)
+- [Download ALMA(-R) Models and Dataset](#download-alma(-r)-models-and-dataset-)
 - [Environment Setup](#environment-setup-)
 - [Evaluation](#evaluation-)
 - [Training](#training-)
@@ -48,16 +45,18 @@ Please find more details in our [paper](https://arxiv.org/abs/2309.11674) or the
   - Monolingual data fine-tuning, parallel data fine-tuning
 
 <p align="center">
-<img src="alma.jpg" width="700" height="560">
+<img src="almar.png" width="700" height="560">
 </p>
 
-# Download ALMA Models 🚀
+# Download ALMA(-R) Models and Dataset 🚀
 
-We release four translation models presented in the paper:
-- **ALMA-7B**: Full-weight Fine-tune LLaMA-2-7B on 20B monolingual tokens and then **Full-weight** fine-tune on human-written parallel data
-- **ALMA-7B-LoRA**: Full-weight Fine-tune LLaMA-2-7B on 20B monolingual tokens and then **LoRA** fine-tune on human-written parallel data
-- **ALMA-13B**: Full-weight Fine-tune LLaMA-2-13B on 12B monolingual tokens and then **Full-weight** fine-tune on human-written parallel data
-- **ALMA-13B-LoRA** (Our best system): Full-weight Fine-tune LLaMA-2-13B on 12B monolingual tokens and then **LoRA** fine-tune on human-written parallel data
+We release six translation models presented in the paper:
+- **ALMA-7B**
+- **ALMA-7B-LoRA**
+- **ALMA-7B-R (NEW!)**: Further LoRA fine-tuning upon ALMA-7B-LoRA with contrastive preference optimization.
+- **ALMA-13B**
+- **ALMA-13B-LoRA**
+- **ALMA-13B-R (NEW!)**: Further LoRA fine-tuning upon ALMA-13B-LoRA with contrastive preference optimization (BEST MODEL!). 
   
 We have also provided the translation outputs from our best system, ALMA-13B-LoRA, in the `outputs/ours/` directory. These outputs can be directly accessed and used for subsequent evaluations.
 
@@ -66,12 +65,21 @@ Model checkpoints are released at huggingface:
 |:-------------:|:---------------:|:---------:|
 |    ALMA-7B    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
 |  ALMA-7B-LoRA |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-7B-Pretrain-LoRA)     |
+|  ALMA-7B-R (NEW!) |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-R](https://huggingface.co/haoranxu/ALMA-7B-R)     |
 |    ALMA-13B   |        [haoranxu/ALMA-13B](https://huggingface.co/haoranxu/ALMA-13B)        |     -     |
 | ALMA-13B-LoRA |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-13B-Pretrain-LoRA)     |
+| ALMA-13B-R (NEW!) |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-R](https://huggingface.co/haoranxu/ALMA-13B-R)     |
 
 **Note that `ALMA-7B-Pretrain` and `ALMA-13B-Pretrain` are NOT translation models. They only experience stage 1 monolingual fine-tuning (20B tokens for the 7B model and 12B tokens for the 13B model), and should be utilized in conjunction with their LoRA models.** 
 
-A quick start to use our best system (ALMA-13B-LoRA) for translation. An example of translating "我爱机器翻译。" into English:
+Datasets used by ALMA and ALMA-R are also released at huggingface now (NEW!)
+|     Datasets    | Train / Validation| Test |
+|:-------------:|:---------------:|:---------:|
+|    Human-Written Parallel Data (ALMA)    |        [train and validation](https://huggingface.co/datasets/haoranxu/ALMA-Human-Parallel)        |     [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test)    |
+|  Triplet Preference Data |        [train](https://huggingface.co/datasets/haoranxu/WMT22-Test)        |   [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test) and [WMT'23](https://huggingface.co/datasets/haoranxu/WMT23-Test)   |
+
+
+A quick start to use our best system (ALMA-13B-R) for translation. An example of translating "我爱机器翻译。" into English:
 ```
 import torch
 from peft import PeftModel
@@ -80,7 +88,7 @@ from transformers import LlamaTokenizer
 
 # Load base model and LoRA weights
 model = AutoModelForCausalLM.from_pretrained("haoranxu/ALMA-13B-Pretrain", torch_dtype=torch.float16, device_map="auto")
-model = PeftModel.from_pretrained(model, "haoranxu/ALMA-13B-Pretrain-LoRA")
+model = PeftModel.from_pretrained(model, "haoranxu/ALMA-13B-R")
 tokenizer = LlamaTokenizer.from_pretrained("haoranxu/ALMA-13B-Pretrain", padding_side='left')
 
 # Add the source sentence into the prompt template
@@ -102,98 +110,73 @@ Translate this from <source language name> into <target language name>:
 ```
 
 # Environment Setup 🔧
-Execute the given command, and it will set up two virtual environments: `alma` and `comet`. Use `alma` for both model training and test generation, while `comet` is specifically designed for evaluation purposes (BLEU and COMET).
 ```
-conda create -n alma python=3.8
-conda activate alma
+conda create -n alma-r python=3.11
+conda activate alma-r
 ```
 If you use **Nvidia GPUs**, install torch with cuda 11.8
 ```
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
-If you use **AMD GPUs**, install torch with ROCm 5.4.2
+If you use **AMD GPUs**, install torch with ROCm 5.6
 ```
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.4.2
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.6
 ```
 Then install other dependencies:
 ```
 bash install_alma.sh
 ```
-and install env `comet`:
-```
-conda create -n comet python=3.8
-conda activate comet
-pip install unbabel-comet
-pip install sacrebleu[ja]
-```
-
 # Evaluation 💻
-### Evaluation on ALMA-7B 
-This is a quick start to evaluate our ALMA-7B model. To produce translation outputs for WMT'22 in both en→cs and cs→en directions, simply run the following command:
+### Evaluation on ALMA-13B-R
+This is a quick start to evaluate our ALMA-13B-R model. To produce translation outputs for WMT'22 in both en→cs and cs→en directions (If you want to evaluate WMT'23 instead, simple pass `--override_test_data_path haoranxu/WMT23-Test`. Please look at `evals/alma_13b_r_wmt23.sh` as an example), run the following command:
 ```
-accelerate launch --config_file configs/deepspeed_eval_config.yaml \
+accelerate launch --config_file configs/deepspeed_eval_config_bf16.yaml \
     run_llmmt.py \
-    --model_name_or_path haoranxu/ALMA-7B \
+    --model_name_or_path haoranxu/ALMA-13B-Pretrain \
     --do_predict \
     --low_cpu_mem_usage \
     --language_pairs en-cs,cs-en \
     --mmt_data_path ./human_written_data/ \
-    --per_device_eval_batch_size 2 \
-    --output_dir ./your_output_dir \
+    --per_device_eval_batch_size 1 \
+    --output_dir ./your_output_dir/ \
+    --use_peft \
+    --peft_model_id haoranxu/ALMA-13B-R \
     --predict_with_generate \
     --max_new_tokens 256 \
     --max_source_length 256 \
-    --fp16 \
+    --bf16 \
     --seed 42 \
     --num_beams 5 \
     --overwrite_cache \
     --overwrite_output_dir
+
 ```
 The generated outputs will be saved in the `your_output_dir`. The translation file for the `en→cs` direction is named `test-en-cs`, and the file for the cs→en direction is `test-cs-en`.
 We have prepared a bash file for the user to easily run the evaluation:
 ```
-bash evals/alma_7b.sh ${your_output_dir} ${test_pairs}
+bash evals/alma_13b_r.sh ${your_output_dir} ${test_pairs}
 ```
 The variable `${test_pairs}` denotes the translation directions you wish to evaluate. It supports testing multiple directions at once. For example, you can use `de-en,en-de,en-cs,cs-en`. Once the bash script completes its execution, both the BLEU scores and COMET results will be automatically displayed.
 
-**Note that this will perform data-parallel evaluation supported by deepspeed: that is, placing a single full copy of your model onto each available GPU and splitting batches across GPUs to evaluate on K GPUs K times faster than on one**. For those with limited GPU memory, we offer an alternative method. This allows you to run the process by distributing a single model across multiple GPUs:
-```
-bash evals/alma_7b_no_parallel.sh ${your_output_dir} ${test_pairs}
-```
-
-### Evaluation on ALMA-7B-LoRA
-To evaluate the translation performance of ALMA-7B-LoRA, one needs to pass `--use_peft` and `--peft_model_id` to enable LoRA. One can find details by running:
-```
-bash evals/alma_7b_lora.sh ${your_output_dir} ${test_pairs}
-```
-Similarly, you can run the model in a model-parallel (but not data parallel) way by running:
-```
-bash evals/alma_7b_lora_no_parallel.sh ${your_output_dir} ${test_pairs}
-```
-
-### Evaluation on ALMA-13B and ALMA-13B-LoRA
-One can find similar way to evaluate our 13B models:
-- ALMA-13B: `bash evals/alma_13b.sh ${your_output_dir} ${test_pairs}`
-- ALMA-13B-lora `bash evals/alma_13b_lora.sh ${your_output_dir} ${test_pairs}`
-and their `*no_parallel` versions.
-
-### Zero-shot evaluation on other LLMs
-We also support the zero-shot evaluation on other LLMs, e.g., OPT, MPT, Faclon models. One can conduct evaluation on other models by running:
-```
-bash evals/eval_other_models ${LLM_MODEL_NAME} ${test_pairs}`
-```
+**Note that this will perform data-parallel evaluation supported by deepspeed: that is, placing a single full copy of your model onto each available GPU and splitting batches across GPUs to evaluate on K GPUs K times faster than on one**. For those with limited GPU memory, we offer an alternative method. The user can pass `--multi_gpu_one_model` to run the process by distributing a single model across multiple GPUs. Please see evaluation examples in `evals/*_no_parallel.sh ` files.
 
 ### Few-Shot In-Context Learning
 To append examples in the prompt, you need to pass the `--few_shot_eval_path` flag and specify the location of their shot files. As a demonstration, you can execute the following command:
 ```
-bash evals/llama-2-13b-5-shot.sh ${LLM_MODEL_NAME} ${test_pairs}
+bash evals/llama-2-13b-5-shot.sh ${OUTPUT_DIR} ${test_pairs}
 ```
+
 # Training 🔥
 Here we show how to 
+- **(NEW!) contrastive Preference Optmization Upon ALMA Models (ALMA→ALMA-R).**
 - fine-tune LLaMA-2-7B on monolingual OSCAR data (stage 1)
 - fine-tune human-written parallel data fine-tuning once stage 1 is completed, including full-weight and LoRA fine-tuning (stage 2)
 
-For all training, we use deepspeed ZeRO-2, please see our configuration file at `configs/deepsped_train_config.yaml`.
+### CPO Fine-Tuning
+To run the CPO fine-tuning with our triplet preference data, run the following command:
+```
+bash runs/cpo_ft.sh ${your_output_dir}
+```
 ### OSCAR Monolingual Fine-Tuning
 To execute the OSCAR monolingual fine-tuning, use the following command:
 ```
@@ -251,3 +234,27 @@ Our 7B and 13B models are trained on 20B and 12B tokens, respectively. However, 
 ### How to decide the interleave probability at stage 1?
 Please find the reasons for interleave probability selection for stage 1 in Appendix D.1 in the [paper](https://arxiv.org/pdf/2309.11674.pdf)!
 
+# Reference
+Please find more details for ALMA models in our [paper](https://arxiv.org/abs/2309.11674) or the [summary](https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/) of the paper.
+```
+@misc{xu2023paradigm,
+      title={A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models}, 
+      author={Haoran Xu and Young Jin Kim and Amr Sharaf and Hany Hassan Awadalla},
+      year={2023},
+      eprint={2309.11674},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```
+
+Please also find more detailed insights for the ALMA-R model with Contrastive Preference Optimization in the [paper](https://arxiv.org/abs/2401.08417).
+```
+@misc{xu2024contrastive,
+      title={Contrastive Preference Optimization: Pushing the Boundaries of LLM Performance in Machine Translation}, 
+      author={Haoran Xu and Amr Sharaf and Yunmo Chen and Weiting Tan and Lingfeng Shen and Benjamin Van Durme and Kenton Murray and Young Jin Kim},
+      year={2024},
+      eprint={2401.08417},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+```

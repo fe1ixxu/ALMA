@@ -13,7 +13,7 @@ import numpy as np
 import datasets
 import evaluate
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Dataset, DatasetDict
 
 import transformers
 from transformers import (
@@ -41,6 +41,8 @@ from peft import PeftModel, PeftConfig
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
+from tqdm import tqdm
+from trl import AutoModelForCausalLMWithValueHead
 
 class SavePeftModelCallback(TrainerCallback):
     def on_save(
@@ -77,9 +79,12 @@ LANG_TABLE = {
     "uk": "Ukrainian",
     "ha": "Hausa",
     "ro": "Romanian",
+    "gu": "Gujarati",
 }
 
 ## Prefix and suffix for prompt in target language (only from English to target language if the target is non-English)
+## Note that prefix and suffix for other languages are only used for zero-shot evaluation of other models.
+## ALMA should only use English Prompt.
 PREFIX = {
     "de": "Übersetzen Sie dies vom Englischen ins Deutsche:\nEnglisch: ",
     "fr": "Traduisez ceci de l'anglais vers le français :\nAnglais: ",
@@ -146,13 +151,21 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
         if not os.path.isfile(test_file):
             logger.info(f"Warning: test file {test_file} does not exist!")
         elif test_file not in seen_files and training_args.do_predict:
-            test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
-                "json",
-                data_files={"test": test_file},
-                cache_dir=model_args.cache_dir,
-                use_auth_token=True if model_args.use_auth_token else None,
-                )
-            test_raw_data[f"{src_lang}-{tgt_lang}"] = test_raw_data[f"{src_lang}-{tgt_lang}"].rename_column("translation", f"{src_lang}-{tgt_lang}")
+            if data_args.override_test_data_path:
+                test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
+                    data_args.override_test_data_path,
+                    f"{src_lang}-{tgt_lang}",
+                    cache_dir=model_args.cache_dir,
+                    use_auth_token=True if model_args.use_auth_token else None,
+                    )
+            else:
+                test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
+                    "json",
+                    data_files={"test": test_file},
+                    cache_dir=model_args.cache_dir,
+                    use_auth_token=True if model_args.use_auth_token else None,
+                    )
+                test_raw_data[f"{src_lang}-{tgt_lang}"] = test_raw_data[f"{src_lang}-{tgt_lang}"].rename_column("translation", f"{src_lang}-{tgt_lang}")
 
         seen_files.add(train_file)
         seen_files.add(valid_file)
@@ -329,7 +342,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
                 trust_remote_code=True,
             )
         model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
-        model.generation_config.use_cache = True        
+        model.generation_config.use_cache = True
     else:
         model = AutoModelForCausalLM.from_config(config)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
@@ -387,13 +400,15 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
                 param.requires_grad = False
         
     return model
-    
+
 def load_tokenizer(data_args, model_args, training_args, logger):
     tokenizer_kwargs = {
         "cache_dir": model_args.cache_dir,
         "use_fast": model_args.use_fast_tokenizer,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
+        "padding_side": 'left' if not data_args.right_pad else "right",
+        "add_eos_token": False,
     }
         
     if model_args.tokenizer_name:
@@ -403,15 +418,11 @@ def load_tokenizer(data_args, model_args, training_args, logger):
             tokenizer = LlamaTokenizer.from_pretrained(
                 model_args.model_name_or_path, 
                 **tokenizer_kwargs, 
-                padding_side='left' if not data_args.right_pad else "right", 
-                add_eos_token=False
             )
         else:
             tokenizer = AutoTokenizer.from_pretrained(
                 model_args.model_name_or_path,
                 **tokenizer_kwargs,
-                padding_side='left' if not data_args.right_pad else "right", 
-                add_eos_token=False
             )
     else:
         raise ValueError(
@@ -425,6 +436,8 @@ def load_tokenizer(data_args, model_args, training_args, logger):
         tokenizer.eos_token_id = 2
         tokenizer.eos_token = "</s>"
         tokenizer.bos_token = "<s>"
+    elif "Mistral" in model_args.model_name_or_path:
+        tokenizer.pad_token_id = 0
     elif "mpt" in model_args.model_name_or_path:
         tokenizer.pad_token_id = 1
         tokenizer.bos_token_id = 0
@@ -703,4 +716,109 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                     desc="Running tokenizer test dataset",
                 )
             test_datasets[lg_pair] = test_dataset
+    return train_datasets, eval_datasets, test_datasets
+
+def preprocess_cpo_data(train_raw_data, valid_raw_data, test_raw_data, pairs, tokenizer, shots_eval_dict, data_args, training_args, model_args):
+    def get_chosen_reject(example, target_lang):
+        sys1_score_key = f"gpt4_{target_lang}_{data_args.cpo_scorer}"
+        sys2_score_key = f"alma_{target_lang}_{data_args.cpo_scorer}"
+        ref_score_key = f"ref_{target_lang}_{data_args.cpo_scorer}"
+
+        sys1_output_key = f"gpt4_{target_lang}"
+        sys2_output_key = f"alma_{target_lang}"
+        ref_output_key = target_lang
+
+        # sys_key = "sys_" + target_lang
+        # gold_key = target_lang
+
+        # Human eval
+        if "Delta" in example and example["Delta"] != 0:
+            if example["Delta"] > 0:
+                return example[sys1_score_key], example[sys2_score_key]
+            else:
+                return example[sys2_score_key], example[sys1_score_key]
+
+        # Defining the sentences and their scores
+        sentences = [example[ref_output_key], example[sys1_output_key], example[sys2_output_key]]
+        scores = [example[ref_score_key], example[sys1_score_key], example[sys2_score_key]]
+
+        # Finding the indexes for the highest and lowest scores
+        highest_score_index = scores.index(max(scores))
+        lowest_score_index = scores.index(min(scores))
+
+        # Assigning the corresponding sentences
+        highest_score_sentence = sentences[highest_score_index]
+        lowest_score_sentence = sentences[lowest_score_index]
+        return highest_score_sentence, lowest_score_sentence
+            
+    def meet_requirements(prompt_tok, example, target_lang):
+        # if prompt is too long
+        if len(prompt_tok) > data_args.max_source_length:
+            return False
+
+        # if the order is fixed, e.g., it has to be en->de
+        if "required_directions" in example and example["required_directions"] != "":
+            tgt = example["required_directions"].split("-")[1]
+            if tgt != target_lang:
+                return False
+        return True 
+
+    def cpo_prompt_function(examples):
+        new_examples = {
+            "prompt": [],
+            "chosen": [],
+            "rejected": [],
+        }
+        for ex in examples["translation"]:
+            source_lang, target_lang = ex["language_pair"].split("-")
+            if f"{source_lang}-{target_lang}" in pairs:
+                prompt = get_prompt(source_lang, target_lang, ex)
+                prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True).input_ids
+                if meet_requirements(prompt_tok, ex, target_lang):
+                    new_examples["prompt"].append(prompt)
+                    chosen, rejected = get_chosen_reject(ex, target_lang)
+                    new_examples["chosen"].append(chosen)
+                    new_examples["rejected"].append(rejected)
+            if f"{target_lang}-{source_lang}" in pairs:
+                prompt = get_prompt(target_lang, source_lang, ex)
+                prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True).input_ids
+                if meet_requirements(prompt_tok, ex, source_lang):
+                    new_examples["prompt"].append(prompt)
+                    chosen, rejected = get_chosen_reject(ex, source_lang)
+                    new_examples["chosen"].append(chosen)
+                    new_examples["rejected"].append(rejected)
+        return new_examples
+    
+    # Preprocessing the datasets.
+    train_datasets, eval_datasets, test_datasets = None, None, None
+    if training_args.do_train:
+        processed_datasets = []
+        for lg_pair, sub_raw_data in train_raw_data.items():
+            train_dataset = sub_raw_data["train"]
+            if data_args.max_train_samples is not None:
+                max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                train_dataset = train_dataset.select(range(max_train_samples))
+            with training_args.main_process_first(desc="CPO train dataset map pre-processing"):
+                if not data_args.streaming:
+                    train_dataset = train_dataset.map(
+                        cpo_prompt_function,
+                        batched=True,
+                        batch_size=1,
+                        num_proc=data_args.preprocessing_num_workers,
+                        remove_columns=["translation"],
+                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}-CPO",
+                        load_from_cache_file=not data_args.overwrite_cache,
+                        desc="Running CPO preprocessing",
+                    )
+                else:
+                    train_dataset = train_dataset.map(
+                        cpo_prompt_function,
+                        batched=True,
+                        batch_size=1,
+                        remove_columns=["translation"],
+                    )    
+            processed_datasets.append(train_dataset)
+        train_datasets = concatenate_datasets(processed_datasets)
+        train_datasets = train_datasets.shuffle(seed=training_args.seed)        
+
     return train_datasets, eval_datasets, test_datasets

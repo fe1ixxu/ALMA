@@ -102,6 +102,14 @@ class ModelArguments:
             )
         },
     )
+    cpo_beta: float = field(
+        default=0.1,
+        metadata={
+            "help": (
+                "Beta for CPO training"
+            )
+        },
+    )
     multi_gpu_one_model: bool = field(
         default=False,
         metadata={
@@ -136,6 +144,8 @@ class DataTrainingArguments:
         default=None, metadata={"help": "The configuration name of the dataset to use (via the datasets library)."}
     )
     mmt_data_path: Optional[str] = field(default=None, metadata={"help": "The input MMT training data path."})
+    override_test_data_path: Optional[str] = field(default=None, metadata={"help": "This will override the default test data in the mmt data"})
+    cpo_data_path: Optional[str] = field(default=None, metadata={"help": "The input CPO training data path."})
     mono_data_path: Optional[str] = field(default=None, metadata={"help": "The input mono data training data path."})
     oscar_data_path: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data name."})
     oscar_data_lang: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data language."})
@@ -284,6 +294,14 @@ class DataTrainingArguments:
             "help": "The suffix for the eval file: test-src-tgt'suffix_eval_file'"
         },
     )
+
+    cpo_scorer: str = field(
+        default="xcomet_kiwi",
+        metadata={
+            "help": "The scorer of CPO, e.g., using xcomet, kiwi, or both of them (xcomet-kiwi) for CPO training"
+        },
+    )
+
 
     # predict_source_lang: str = field(default="", metadata={"help": "The source language for testing"})
     # predict_target_lang: str = field(default="en", metadata={"help": "The target language for testing"})

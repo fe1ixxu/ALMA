@@ -12,8 +12,8 @@ for pair in ${TEST_PAIRS//,/ }; do
         TOK="ja-mecab"
     fi
     echo "--------------------Results for ${pair}-------------------------------------"
-    src_path=./outputs/wmt22_outputs/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}
-    tgt_path=./outputs/wmt22_outputs/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${tgt}
+    src_path=./outputs/wmt23_outputs/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}
+    tgt_path=./outputs/wmt23_outputs/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${tgt}
     output_path=${OUTPUT_DIR}/test-${src}-${tgt}
     SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${tgt_path} > ${output_path}.bleu
     cat ${output_path}.bleu
