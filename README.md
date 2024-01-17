@@ -30,7 +30,7 @@ The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA
 ⭐ Jan.16 2024 The ALMA paper: [A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models](https://arxiv.org/abs/2309.11674) has been accepted at ICLR 2024! Check out more details [here](https://openreview.net/forum?id=farT6XXntP)!
 
 # Contents 📄
-- [Download ALMA(-R) Models and Dataset](#download-alma-r-models-and-dataset-🚀)
+- [Download ALMA(-R) Models and Dataset](#download-alma-r-models-and-dataset-)
 - [Environment Setup](#environment-setup-)
 - [Evaluation](#evaluation-)
 - [Training](#training-)
@@ -51,14 +51,14 @@ The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA
 # Download ALMA(-R) Models and Dataset 🚀
 
 We release six translation models presented in the paper:
-- **ALMA-7B**
-- **ALMA-7B-LoRA**
+- ALMA-7B
+- ALMA-7B-LoRA
 - **ALMA-7B-R (NEW!)**: Further LoRA fine-tuning upon ALMA-7B-LoRA with contrastive preference optimization.
-- **ALMA-13B**
-- **ALMA-13B-LoRA**
+- ALMA-13B
+- ALMA-13B-LoRA
 - **ALMA-13B-R (NEW!)**: Further LoRA fine-tuning upon ALMA-13B-LoRA with contrastive preference optimization (BEST MODEL!). 
   
-We have also provided the WMT'22 and WMT'23 translation outputs from ALMA-13B-LoRA and ALMA-13B-R in the `outputs` directory. These outputs also includes our outputs of baselines and can be directly accessed and used for subsequent evaluations.
+*We have also provided the WMT'22 and WMT'23 translation outputs from ALMA-13B-LoRA and ALMA-13B-R in the `outputs` directory. These outputs also includes our outputs of baselines and can be directly accessed and used for subsequent evaluations.*
 
 Model checkpoints are released at huggingface:
 |     Models    | Base Model Link | LoRA Link |
@@ -172,7 +172,7 @@ Here we show how to
 - fine-tune LLaMA-2-7B on monolingual OSCAR data (stage 1)
 - fine-tune human-written parallel data fine-tuning once stage 1 is completed, including full-weight and LoRA fine-tuning (stage 2)
 
-### CPO Fine-Tuning
+## **CPO Fine-Tuning**
 To run the CPO fine-tuning with our triplet preference data, run the following command:
 ```
 bash runs/cpo_ft.sh ${your_output_dir}
@@ -247,7 +247,7 @@ Please find more details for ALMA models in our [paper](https://arxiv.org/abs/23
 }
 ```
 
-Please also find more detailed insights for the ALMA-R model with Contrastive Preference Optimization in the [paper](https://arxiv.org/abs/2401.08417).
+Please also find more detailed information for the ALMA-R model with Contrastive Preference Optimization in the [paper](https://arxiv.org/abs/2401.08417).
 ```
 @misc{xu2024contrastive,
       title={Contrastive Preference Optimization: Pushing the Boundaries of LLM Performance in Machine Translation}, 
