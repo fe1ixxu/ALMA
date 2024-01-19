@@ -66,10 +66,10 @@ Model checkpoints are released at huggingface:
 |:-------------:|:---------------:|:---------:|
 |    ALMA-7B    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
 |  ALMA-7B-LoRA |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-7B-Pretrain-LoRA)     |
-|  **ALMA-7B-R (NEW!)** |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-R](https://huggingface.co/haoranxu/ALMA-7B-R)     |
+|  **ALMA-7B-R (NEW!)** |        [haoranxu/ALMA-7B-R (LoRA merged)](https://huggingface.co/haoranxu/ALMA-7B-R)        |     -    |
 |    ALMA-13B   |        [haoranxu/ALMA-13B](https://huggingface.co/haoranxu/ALMA-13B)        |     -     |
 | ALMA-13B-LoRA |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-13B-Pretrain-LoRA)     |
-| **ALMA-13B-R (NEW!)** |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-R](https://huggingface.co/haoranxu/ALMA-13B-R)     |
+| **ALMA-13B-R (NEW!)** |        [haoranxu/ALMA-13B-R (LoRA merged)](https://huggingface.co/haoranxu/ALMA-13B-R)        |    -   |
 
 **Note that `ALMA-7B-Pretrain` and `ALMA-13B-Pretrain` are NOT translation models. They only experience stage 1 monolingual fine-tuning (20B tokens for the 7B model and 12B tokens for the 13B model), and should be utilized in conjunction with their LoRA models.** 
 
@@ -83,14 +83,12 @@ Datasets used by ALMA and ALMA-R are also released at huggingface now (NEW!)
 A quick start to use our best system (ALMA-13B-R) for translation. An example of translating "我爱机器翻译。" into English:
 ```
 import torch
-from peft import PeftModel
 from transformers import AutoModelForCausalLM
-from transformers import LlamaTokenizer
+from transformers import AutoTokenizer
 
 # Load base model and LoRA weights
-model = AutoModelForCausalLM.from_pretrained("haoranxu/ALMA-13B-Pretrain", torch_dtype=torch.float16, device_map="auto")
-model = PeftModel.from_pretrained(model, "haoranxu/ALMA-13B-R")
-tokenizer = LlamaTokenizer.from_pretrained("haoranxu/ALMA-13B-Pretrain", padding_side='left')
+model = AutoModelForCausalLM.from_pretrained("haoranxu/ALMA-13B-R", torch_dtype=torch.float16, device_map="auto")
+tokenizer = AutoTokenizer.from_pretrained("haoranxu/ALMA-13B-R", padding_side='left')
 
 # Add the source sentence into the prompt template
 prompt="Translate this from Chinese to English:\nChinese: 我爱机器翻译。\nEnglish:"
@@ -133,15 +131,13 @@ This is a quick start to evaluate our ALMA-13B-R model. To produce translation o
 ```
 accelerate launch --config_file configs/deepspeed_eval_config_bf16.yaml \
     run_llmmt.py \
-    --model_name_or_path haoranxu/ALMA-13B-Pretrain \
+    --model_name_or_path haoranxu/ALMA-13B-R \
     --do_predict \
     --low_cpu_mem_usage \
     --language_pairs en-cs,cs-en \
     --mmt_data_path ./human_written_data/ \
     --per_device_eval_batch_size 1 \
     --output_dir ./your_output_dir/ \
-    --use_peft \
-    --peft_model_id haoranxu/ALMA-13B-R \
     --predict_with_generate \
     --max_new_tokens 256 \
     --max_source_length 256 \
@@ -159,7 +155,7 @@ bash evals/alma_13b_r.sh ${your_output_dir} ${test_pairs}
 ```
 The variable `${test_pairs}` denotes the translation directions you wish to evaluate. It supports testing multiple directions at once. For example, you can use `de-en,en-de,en-cs,cs-en`. Once the bash script completes its execution, both the BLEU scores and COMET results will be automatically displayed.
 
-**Note that this will perform data-parallel evaluation supported by deepspeed: that is, placing a single full copy of your model onto each available GPU and splitting batches across GPUs to evaluate on K GPUs K times faster than on one**. For those with limited GPU memory, we offer an alternative method. The user can pass `--multi_gpu_one_model` to run the process by distributing a single model across multiple GPUs. Please see evaluation examples in `evals/*_no_parallel.sh ` files.
+**Note that this will perform data-parallel evaluation supported by deepspeed: that is, placing a single full copy of your model onto each available GPU and splitting batches across GPUs to evaluate on K GPUs K times faster than on one**. For those with limited GPU memory, we offer an alternative method. The user can pass `--multi_gpu_one_model` to run the process by distributing a single model across multiple GPUs. Please see evaluation examples in `evals/alma_13b_r.sh` or  `evals/*no_parallel` files.
 
 ### Few-Shot In-Context Learning
 To append examples in the prompt, you need to pass the `--few_shot_eval_path` flag and specify the location of their shot files. As a demonstration, you can execute the following command:
