@@ -734,9 +734,9 @@ def preprocess_cpo_data(train_raw_data, valid_raw_data, test_raw_data, pairs, to
         # Human eval
         if "Delta" in example and example["Delta"] != 0:
             if example["Delta"] > 0:
-                return example[sys1_score_key], example[sys2_score_key]
+                return example[sys1_output_key], example[sys2_output_key]
             else:
-                return example[sys2_score_key], example[sys1_score_key]
+                return example[sys2_output_key], example[sys1_output_key]
 
         # Defining the sentences and their scores
         sentences = [example[ref_output_key], example[sys1_output_key], example[sys2_output_key]]
