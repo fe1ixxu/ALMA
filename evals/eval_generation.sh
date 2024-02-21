@@ -15,7 +15,7 @@ for pair in ${TEST_PAIRS//,/ }; do
     src_path=./outputs/wmt22_outputs/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${src}
     tgt_path=./outputs/wmt22_outputs/wmt-testset/${src}${tgt}/test.${src}-${tgt}.${tgt}
     output_path=${OUTPUT_DIR}/test-${src}-${tgt}
-    SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${output_path} < ${tgt_path} > ${output_path}.bleu
+    SACREBLEU_FORMAT=text sacrebleu -tok ${TOK} -w 2 ${tgt_path} < ${output_path} > ${output_path}.bleu
     cat ${output_path}.bleu
     comet-score -s ${src_path} -t ${output_path} -r ${tgt_path} --batch_size 256 --model Unbabel/wmt22-comet-da --gpus 1 > ${output_path}.comet
     comet-score -s ${src_path} -t ${output_path} --batch_size 256 --model Unbabel/wmt22-cometkiwi-da --gpus 1 > ${output_path}.cometkiwi

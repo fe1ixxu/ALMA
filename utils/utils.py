@@ -173,6 +173,23 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
 
     return train_raw_data, valid_raw_data, test_raw_data
 
+def load_a_single_text_file(pairs, data_args, model_args):
+    assert len(pairs) == 1, "Specific translation text source file only needs one translation direction!"
+    src_lang, tgt_lang = list(pairs)[0].split("-")
+    test_raw_data = {}
+    pair = f"{src_lang}-{tgt_lang}"
+    test_raw_data[pair] = load_dataset(
+        'text',
+        data_files={"test": data_args.text_test_file},
+        cache_dir=model_args.cache_dir,
+        use_auth_token=True if model_args.use_auth_token else None,
+        )
+    def format_features(example):
+        return {pair: {src_lang: example["text"], tgt_lang: ""}}
+
+    test_raw_data[pair] = test_raw_data[pair].map(format_features, remove_columns=["text"])
+
+    return test_raw_data
 
 def get_first_non_pad_index(input_tensor):
     input_tensor = torch.tensor(input_tensor)

@@ -43,7 +43,7 @@ from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets, interleave_datasets
 from utils.trainer_llmmt import LlmmtTrainer
-from utils.utils import LANG_TABLE, load_mmt_dataset, get_preprocessed_data, clean_outputstring, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
+from utils.utils import LANG_TABLE, load_mmt_dataset, get_preprocessed_data, clean_outputstring, load_a_single_text_file, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
 from utils.arguments import ModelArguments, DataTrainingArguments
 from utils.ul2collator import DataCollatorForUL2
 
@@ -99,8 +99,11 @@ def main():
     # Get the datasets
     pairs = set(data_args.language_pairs.split(","))
     train_raw_data, valid_raw_data, test_raw_data = None, None, None
-    if data_args.mmt_data_path:
+    if data_args.text_test_file:
+        test_raw_data = load_a_single_text_file(pairs, data_args, model_args)
+    elif data_args.mmt_data_path:
         train_raw_data, valid_raw_data, test_raw_data = load_mmt_dataset(pairs, data_args, model_args, training_args, logger)
+
     if data_args.mono_data_path:
         train_raw_data = load_dataset(
             "json",

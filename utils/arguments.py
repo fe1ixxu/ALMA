@@ -149,6 +149,7 @@ class DataTrainingArguments:
     mono_data_path: Optional[str] = field(default=None, metadata={"help": "The input mono data training data path."})
     oscar_data_path: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data name."})
     oscar_data_lang: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data language."})
+    text_test_file:  Optional[str] = field(default=None, metadata={"help": "A single test data file in text format, this will override the mmt_data_path and override_test_data_path"})
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
