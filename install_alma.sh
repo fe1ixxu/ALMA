@@ -3,7 +3,6 @@ pip install peft==0.5.0
 pip install sentencepiece
 pip install sacrebleu
 pip install ipython
-pip install pytest
 pip install datasets
 pip install evaluate
 pip3 install deepspeed==0.11.1
