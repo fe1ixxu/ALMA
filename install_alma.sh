@@ -5,7 +5,7 @@ pip install sacrebleu
 pip install ipython
 pip install datasets
 pip install evaluate
-pip3 install deepspeed==0.11.1
+pip3 install deepspeed==0.13.1
 pip install einops
 pip install wandb
 pip install zstandard
