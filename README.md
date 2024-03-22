@@ -26,7 +26,7 @@
 The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 
 # News 🌟
-⭐ CPO method now is merged at [huggingface trl](https://github.com/huggingface/trl)! See details [here](https://github.com/huggingface/trl/pull/1382).
+⭐ Mar.22 2024 CPO method now is merged at [huggingface trl](https://github.com/huggingface/trl)! See details [here](https://github.com/huggingface/trl/pull/1382).
 
 ⭐ Jan.16 2024 **ALMA-R** is Released! Please check more details with our new paper: [Contrastive Preference Optimization: Pushing the Boundaries of LLM Performance in Machine Translation](https://arxiv.org/abs/2401.08417).
 
