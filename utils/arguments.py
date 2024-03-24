@@ -106,7 +106,7 @@ class ModelArguments:
         default=0.1,
         metadata={
             "help": (
-                "Beta for CPO training"
+                "Beta for CPO training. Use --beta inseatd. This is deprecated and will be deleted in the future."
             )
         },
     )

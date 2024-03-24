@@ -11,7 +11,7 @@ accelerate launch --main_process_port ${port} --config_file configs/deepspeed_tr
     --tokenizer_name haoranxu/ALMA-13B-Pretrain \
     --peft_model_id  haoranxu/ALMA-13B-Pretrain-LoRA \
     --cpo_scorer kiwi_xcomet \
-    --cpo_beta 0.1 \
+    --beta 0.1 \
     --use_peft \
     --use_fast_tokenizer False \
     --cpo_data_path  haoranxu/ALMA-R-Preference \
@@ -34,10 +34,11 @@ accelerate launch --main_process_port ${port} --config_file configs/deepspeed_tr
     --logging_steps 0.05 \
     --output_dir ${OUTPUT_DIR} \
     --num_train_epochs 1 \
-    --predict_with_generate \
     --prediction_loss_only \
     --max_new_tokens 256 \
     --max_source_length 256 \
+    --max_prompt_length 256 \
+    --max_length 512 \
     --seed 42 \
     --overwrite_output_dir \
     --report_to none \

@@ -11,5 +11,5 @@ pip install wandb
 pip install zstandard
 pip install accelerate==0.27.2
 pip install jsonlines
-pip install git+https://github.com/fe1ixxu/ALMA.git@alma-r-trl
+pip install git+https://github.com/huggingface/trl.git@dc6a934269a6d42cceb1565829030fc73e00e8cf
 pip install unbabel-comet

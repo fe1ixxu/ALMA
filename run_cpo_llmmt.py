@@ -30,7 +30,7 @@ from datasets import  interleave_datasets
 from utils.trainer_llmmt import LlmmtTrainer
 from utils.utils import LANG_TABLE, load_mmt_dataset, preprocess_cpo_data, clean_outputstring, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
 from utils.arguments import ModelArguments, DataTrainingArguments
-from utils.cpo_trainer import CPOTrainer
+from trl import CPOTrainer, CPOConfig
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
     
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, Seq2SeqTrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, CPOConfig))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -120,12 +120,9 @@ def main():
     trainer = CPOTrainer(
         model,
         args=training_args,
-        beta=model_args.cpo_beta,
         train_dataset=train_datasets,
         eval_dataset=eval_datasets,
         tokenizer=tokenizer,
-        max_prompt_length=data_args.max_source_length,
-        max_length=data_args.max_source_length+data_args.max_new_tokens,
         callbacks=[SavePeftModelCallback] if model_args.use_peft else None,
     )
     # Training
