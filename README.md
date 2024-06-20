@@ -26,7 +26,9 @@
 The original ALMA repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 
 # News 🌟
-⭐ May.1 CPO paper has been accepted at ICML 2024!
+⭐ We want to give a shout out to [SimPO](https://arxiv.org/pdf/2405.14734), which shares a similar reference-free preference learning framework with CPO but in a more stable manner due to its special length normalization and target reward margin. The most exciting thing is that CPO and SimPO can potentially be used together! Learn more about [CPO-SimPO](https://github.com/fe1ixxu/CPO_SIMPO)!
+
+⭐ May.1 CPO paper has been accepted at **ICML 2024**!
 
 ⭐ Mar.22 2024 CPO method now is merged at [huggingface trl](https://github.com/huggingface/trl)! See details [here](https://github.com/huggingface/trl/pull/1382).
 
