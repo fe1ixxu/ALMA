@@ -59,6 +59,14 @@ class ModelArguments:
             )
         },
     )
+    use_flash_attention_2: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Will enable flash attention 2"
+            )
+        },
+    )
     torch_dtype: Optional[str] = field(
         default=None,
         metadata={
@@ -78,6 +86,20 @@ class ModelArguments:
             )
         },
     )
+    encoder_decoder_type: str = field(
+        default="",
+        metadata={"help": "Enable it if the model is encoder-decoder architecture."},
+    )
+
+    chat_style: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Whether to use chat style decoding"
+            )
+        },
+    )
+
     load_in_8bit: bool = field(
         default=False,
         metadata={
@@ -99,14 +121,6 @@ class ModelArguments:
         metadata={
             "help": (
                 "The rank for LoRA"
-            )
-        },
-    )
-    cpo_beta: float = field(
-        default=0.1,
-        metadata={
-            "help": (
-                "Beta for CPO training. Use --beta inseatd. This is deprecated and will be deleted in the future."
             )
         },
     )
@@ -148,8 +162,11 @@ class DataTrainingArguments:
     cpo_data_path: Optional[str] = field(default=None, metadata={"help": "The input CPO training data path."})
     mono_data_path: Optional[str] = field(default=None, metadata={"help": "The input mono data training data path."})
     oscar_data_path: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data name."})
+    nllb_pretrain_data_path: Optional[str] = field(default=None, metadata={"help": "The input NLLB pretrain (parallel) data path."})
     oscar_data_lang: Optional[str] = field(default=None, metadata={"help": "The input Oscar mono data language."})
     text_test_file:  Optional[str] = field(default=None, metadata={"help": "A single test data file in text format, this will override the mmt_data_path and override_test_data_path"})
+    aya_datasets:  Optional[str] = field(default=None, metadata={"help": "The datasets for Aya model."})
+
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
@@ -289,6 +306,14 @@ class DataTrainingArguments:
             "help": "Usung interleave to concatenate datasets, with probabilities of p1,p2,p3,..., splited by commas"
         },
     )
+
+    nllb_interleave_probs: str = field(
+        default="",
+        metadata={
+            "help": "Usung interleave to concatenate datasets, with probabilities of p1,p2,p3,..., splited by commas for NLLB"
+        },
+    )
+
     suffix_eval_file: str = field(
         default="",
         metadata={

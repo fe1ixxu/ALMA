@@ -1,7 +1,4 @@
 OUTPUT_DIR=${1:-"./llama-2-7b-oscar-ft"}
-export HF_DATASETS_CACHE=".cache/huggingface_cache/datasets"
-export TRANSFORMERS_CACHE=".cache/models/"
-
 # random port between 30000 and 50000
 port=$(( RANDOM % (50000 - 30000 + 1 ) + 30000 ))
 accelerate launch --main_process_port ${port} --config_file configs/deepspeed_train_config.yaml \

@@ -1,48 +1,26 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-import logging
 import copy
-import math
 import os
-import sys
-from dataclasses import dataclass, field
 from itertools import chain
-from typing import Optional
-import numpy as np
-import datasets
-import evaluate
 import torch
-from datasets import load_dataset, Dataset, DatasetDict
+from datasets import load_dataset
 
 import transformers
 from transformers import (
     CONFIG_MAPPING,
-    MODEL_FOR_CAUSAL_LM_MAPPING,
     AutoConfig,
     AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
     AutoTokenizer,
-    HfArgumentParser,
-    Trainer,
-    Seq2SeqTrainer,
-    TrainingArguments,
-    Seq2SeqTrainingArguments,
-    default_data_collator,
-    is_torch_tpu_available,
-    set_seed,
-    LlamaTokenizer,
 )
-from transformers.testing_utils import CaptureLogger
-from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version, send_example_telemetry
-from transformers.utils.versions import require_version
-from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, TaskType
-from peft import PeftModel, PeftConfig
+from peft import LoraConfig, get_peft_model
+from peft import PeftModel
 from collections import defaultdict
 from transformers.trainer_callback import TrainerCallback
 from datasets import concatenate_datasets
 from tqdm import tqdm
-from trl import AutoModelForCausalLMWithValueHead
 
 class SavePeftModelCallback(TrainerCallback):
     def on_save(
@@ -69,17 +47,185 @@ class SavePeftModelCallback(TrainerCallback):
 
 LANG_TABLE = {
     "en": "English",
+    # Group 1:
+    "da": "Danish",
+    "nl": "Dutch",
     "de": "German",
-    "fr": "French",
-    "cs": "Czech",
     "is": "Icelandic",
+    "no": "Norwegian",
+    "sv": "Swedish",
+    "af": "Afrikaans",
+    # Group 2:
+    "ca": "Catalan",
+    "ro": "Romanian",
+    "gl": "Galician",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "es": "Spanish",
+    # Group 3:
+    "bg": "Bulgarian",
+    "mk": "Macedonian",
+    "sr": "Serbian",
+    "uk": "Ukrainian",
+    "ru": "Russian",
+    # Group 4:
+    "id": "Indonesian",
+    "ms": "Malay",
+    "th": "Thai",
+    "vi": "Vietnamese",
+    "mg": "Malagasy",
+    "fr": "French",
+    # Group 5:
+    "hu": "Hungarian",
+    "el": "Greek",
+    "cs": "Czech",
+    "pl": "Polish",
+    "lt": "Lithuanian",
+    "lv": "Latvian",
+    # Group 6:
+    "ka": "Georgian",
     "zh": "Chinese",
     "ja": "Japanese",
-    "ru": "Russian",
-    "uk": "Ukrainian",
-    "ha": "Hausa",
-    "ro": "Romanian",
+    "ko": "Korean",
+    "fi": "Finnish",
+    "et": "Estonian",
+    # Group 7:
     "gu": "Gujarati",
+    "hi": "Hindi",
+    "mr": "Marathi",
+    "ne": "Nepali",
+    "ur": "Urdu",
+    # Group 8:
+    "az": "Azerbaijani",
+    "kk": "Kazakh",
+    "ky": "Kyrgyz",
+    "tr": "Turkish",
+    "uz": "Uzbek",
+    "ar": "Arabic",
+    "he": "Hebrew",
+    "fa": "Persian",
+}
+
+NLLB_CODE = {
+    "en": "eng_Latn",
+    # Group 1:
+    "da": "dan_Latn",
+    "nl": "nld_Latn",
+    "de": "deu_Latn",
+    "is": "isl_Latn",
+    "no": "nob_Latn",
+    "sv": "swe_Latn",
+    "af": "afr_Latn",
+    # Group 2:
+    "ca": "cat_Latn",
+    "ro": "ron_Latn",
+    "gl": "glg_Latn",
+    "it": "ita_Latn",
+    "pt": "por_Latn",
+    "es": "spa_Latn",
+    # Group 3:
+    "bg": "bul_Cyrl",
+    "mk": "mkd_Cyrl",
+    "sr": "srp_Cyrl",
+    "uk": "ukr_Cyrl",
+    "ru": "rus_Cyrl",
+    # Group 4:
+    "id": "ind_Latn",
+    "ms": "zsm_Latn",
+    "th": "tha_Thai",
+    "vi": "vie_Latn",
+    "mg": "plt_Latn",
+    "fr": "fra_Latn",
+    # Group 5:
+    "hu": "hun_Latn",
+    "el": "ell_Grek",
+    "cs": "ces_Latn",
+    "pl": "pol_Latn",
+    "lt": "lit_Latn",
+    "lv": "lvs_Latn",
+    # Group 6:
+    "ka": "kat_Geor",
+    "zh": "zho_Hans",
+    "ja": "jpn_Jpan",
+    "ko": "kor_Hang",
+    "fi": "fin_Latn",
+    "et": "est_Latn",
+    # Group 7:
+    "gu": "guj_Gujr",
+    "hi": "hin_Deva",
+    "mr": "mar_Deva",
+    "ne": "npi_Deva",
+    "ur": "urd_Arab",
+    # Group 8:
+    "az": "azj_Latn",
+    "kk": "kaz_Cyrl",
+    "ky": "kir_Cyrl",
+    "tr": "tur_Latn",
+    "uz": "uzn_Latn",
+    "ar": "arb_Arab",
+    "he": "heb_Hebr",
+    "fa": "pes_Arab",
+}
+
+ISO1_ISO3_map = {
+    "en": "eng",
+    # Group 1:
+    "da": "dan",
+    "nl": "nld",
+    "de": "deu",
+    "is": "isl",
+    "no": "nob",
+    "sv": "swe",
+    "af": "afr",
+    # Group 2:
+    "ca": "cat",
+    "ro": "ron",
+    "gl": "glg",
+    "it": "ita",
+    "pt": "por",
+    "es": "spa",
+    # Group 3:
+    "bg": "bul",
+    "mk": "mkd",
+    "sr": "srp",
+    "uk": "ukr",
+    "ru": "rus",
+    # Group 4:
+    "id": "ind",
+    "ms": "msa",
+    "th": "tha",
+    "vi": "vie",
+    "mg": "mlg",
+    "fr": "fra",
+    # Group 5:
+    "hu": "hun",
+    "el": "ell",
+    "cs": "ces",
+    "pl": "pol",
+    "lt": "lit",
+    "lv": "lav",
+    # Group 6:
+    "ka": "kat",
+    "zh": "zho",
+    "ja": "jpn",
+    "ko": "kor",
+    "fi": "fin",
+    "et": "est",
+    # Group 7:
+    "gu": "guj",
+    "hi": "hin",
+    "mr": "mar",
+    "ne": "nep",
+    "ur": "urd",
+    # Group 8:
+    "az": "aze",
+    "kk": "kaz",
+    "ky": "kir",
+    "tr": "tur",
+    "uz": "uzb",
+    "ar": "arb",
+    "he": "heb",
+    "fa": "fas",
 }
 
 ## Prefix and suffix for prompt in target language (only from English to target language if the target is non-English)
@@ -136,7 +282,7 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
                 "json",
                 data_files={"train": train_file},
                 cache_dir=model_args.cache_dir,
-                use_auth_token=True if model_args.use_auth_token else None,
+                token=True if model_args.use_auth_token else None,
                 streaming=data_args.streaming,
                 )
         if not os.path.isfile(valid_file):
@@ -146,26 +292,26 @@ def load_mmt_dataset(pairs, data_args, model_args, training_args, logger):
                 "json",
                 data_files={"validation": valid_file},
                 cache_dir=model_args.cache_dir,
-                use_auth_token=True if model_args.use_auth_token else None,
+                token=True if model_args.use_auth_token else None,
                 )
-        if not os.path.isfile(test_file):
+
+        if data_args.override_test_data_path and  training_args.do_predict:
+            test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
+                data_args.override_test_data_path,
+                f"{src_lang}-{tgt_lang}",
+                cache_dir=model_args.cache_dir,
+                token=True if model_args.use_auth_token else None,
+                )
+        elif not os.path.isfile(test_file):
             logger.info(f"Warning: test file {test_file} does not exist!")
         elif test_file not in seen_files and training_args.do_predict:
-            if data_args.override_test_data_path:
-                test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
-                    data_args.override_test_data_path,
-                    f"{src_lang}-{tgt_lang}",
-                    cache_dir=model_args.cache_dir,
-                    use_auth_token=True if model_args.use_auth_token else None,
-                    )
-            else:
-                test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
-                    "json",
-                    data_files={"test": test_file},
-                    cache_dir=model_args.cache_dir,
-                    use_auth_token=True if model_args.use_auth_token else None,
-                    )
-                test_raw_data[f"{src_lang}-{tgt_lang}"] = test_raw_data[f"{src_lang}-{tgt_lang}"].rename_column("translation", f"{src_lang}-{tgt_lang}")
+            test_raw_data[f"{src_lang}-{tgt_lang}"] = load_dataset(
+                "json",
+                data_files={"test": test_file},
+                cache_dir=model_args.cache_dir,
+                token=True if model_args.use_auth_token else None,
+                )
+            test_raw_data[f"{src_lang}-{tgt_lang}"] = test_raw_data[f"{src_lang}-{tgt_lang}"].rename_column("translation", f"{src_lang}-{tgt_lang}")
 
         seen_files.add(train_file)
         seen_files.add(valid_file)
@@ -182,7 +328,7 @@ def load_a_single_text_file(pairs, data_args, model_args):
         'text',
         data_files={"test": data_args.text_test_file},
         cache_dir=model_args.cache_dir,
-        use_auth_token=True if model_args.use_auth_token else None,
+        token=True if model_args.use_auth_token else None,
         )
     def format_features(example):
         return {pair: {src_lang: example["text"], tgt_lang: ""}}
@@ -221,11 +367,11 @@ def get_first_non_specical_index(input_tensor, special):
     return first_non_pad_index.item()
 
 # Suffix for splitting and getting the generated sentences
-def get_key_suffix(tgt_lang, data_args):
+def get_key_suffix(tgt_lang, data_args, additional_suffix):
     if data_args.use_target_lang_prompt_eval:
         return SUFFIX[tgt_lang]
     else:
-        return f"\n{LANG_TABLE[tgt_lang]}:"
+        return f"\n{LANG_TABLE[tgt_lang]}:" + additional_suffix
 
 def get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict):
     src_fullname = LANG_TABLE[source_lang]
@@ -241,7 +387,12 @@ def get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict):
     prompt = prefix + shot_prompt + f"\n{src_fullname}: " + ex[source_lang] + suffix
     return prompt
 
-def get_prompt(source_lang, target_lang, ex, shots_eval_dict={}, use_target_lang_prompt_eval=False):
+def get_prompt(source_lang, target_lang, ex, shots_eval_dict={}, use_target_lang_prompt_eval=False, encoder_decoder_type=False):
+    if encoder_decoder_type == "aya101":
+        return f"Translate to {LANG_TABLE[target_lang]}: " + ex[source_lang]
+    elif encoder_decoder_type == "nllb":
+        return ex[source_lang]
+
     if len(shots_eval_dict) != 0:
         return get_prompt_few_shot(source_lang, target_lang, ex, shots_eval_dict)
     src_fullname = LANG_TABLE[source_lang]
@@ -313,7 +464,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
     config_kwargs = {
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
-        "use_auth_token": True if model_args.use_auth_token else None,
+        "token": True if model_args.use_auth_token else None,
         "trust_remote_code": True,
         "max_length": data_args.max_source_length + data_args.max_new_tokens,
         # "norm_type": "low_precision_rmsnorm",
@@ -330,7 +481,7 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             logger.info(f"Overriding config: {model_args.config_overrides}")
             config.update_from_string(model_args.config_overrides)
             logger.info(f"New config: {config}")
-    if "mpt" in model_args.model_name_or_path:
+    if "mosaicml/mpt" in model_args.model_name_or_path:
         config.attn_config["prefix_lm"] = data_args.use_prefix_lm
 
     ## Model Loading
@@ -340,28 +491,35 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
             if model_args.torch_dtype in ["auto", None]
             else getattr(torch, model_args.torch_dtype)
         )
-        if model_args.multi_gpu_one_model and not training_args.do_train:
-            model = AutoModelForCausalLM.from_pretrained(
+
+        
+        AutoModelLoad = AutoModelForSeq2SeqLM if model_args.encoder_decoder_type else AutoModelForCausalLM
+
+        if model_args.multi_gpu_one_model:
+            model = AutoModelLoad.from_pretrained(
                 model_args.model_name_or_path if last_checkpoint is None else last_checkpoint,
                 device_map="auto",
                 low_cpu_mem_usage=model_args.low_cpu_mem_usage,
+                use_flash_attention_2=model_args.use_flash_attention_2,
+                torch_dtype=torch_dtype,
             )
         else:
-            model = AutoModelForCausalLM.from_pretrained(
+            model = AutoModelLoad.from_pretrained(
                 model_args.model_name_or_path if last_checkpoint is None else last_checkpoint,
                 from_tf=bool(".ckpt" in model_args.model_name_or_path),
                 config=config,
                 cache_dir=model_args.cache_dir,
                 revision=model_args.model_revision,
-                use_auth_token=True if model_args.use_auth_token else None,
+                token=True if model_args.use_auth_token else None,
                 torch_dtype=torch_dtype,
                 low_cpu_mem_usage=model_args.low_cpu_mem_usage,
                 trust_remote_code=True,
+                use_flash_attention_2=model_args.use_flash_attention_2,
             )
         model.generation_config.max_length = data_args.max_source_length + data_args.max_new_tokens
         model.generation_config.use_cache = True
     else:
-        model = AutoModelForCausalLM.from_config(config)
+        model = AutoModelLoad.from_config(config)
         n_params = sum({p.data_ptr(): p.numel() for p in model.parameters()}.values())
         logger.info(f"Training new model from scratch - Total size={n_params/2**20:.2f}M params")
 
@@ -373,49 +531,22 @@ def load_model(data_args, model_args, training_args, tokenizer, logger):
 
     if model_args.use_peft:
         if model_args.peft_model_id:
-            model = PeftModel.from_pretrained(model, model_args.peft_model_id)
+            model = PeftModel.from_pretrained(model, model_args.peft_model_id, is_trainable=True)
             ## If still need to fine-tune
-            for name, param in model.named_parameters():
-                if "lora_A" in name or "lora_B" in name:
-                    param.requires_grad = True
+            # for name, param in model.named_parameters():
+            #     if "lora_A" in name or "lora_B" in name:
+            #         param.requires_grad = True
         else:
             config = LoraConfig(
                 r=model_args.lora_rank,
                 lora_alpha=model_args.lora_rank * 2,
-                target_modules=["down_proj"],
+                target_modules="all-linear",
                 lora_dropout=0.05,
                 bias="none",
-                task_type="CAUSAL_LM"
+                task_type="CAUSAL_LM" if not model_args.encoder_decoder_type else "SEQ_2_SEQ_LM",
             )
             model = get_peft_model(model, config)
         print_trainable_parameters(model)
-
-    if "llama" in model_args.model_name_or_path:
-        model.config.pad_token_id = 0
-        model.config.bos_token_id = 1
-        model.config.eos_token_id = 2
-        model.generation_config.pad_token_id = 0
-        model.generation_config.bos_token_id = 1
-        model.generation_config.eos_token_id = 2
-    elif "BigTranslate" in model_args.model_name_or_path:
-        model.config.pad_token_id = 2
-        model.config.bos_token_id = 1
-        model.config.eos_token_id = 2
-        model.generation_config.pad_token_id = 2
-        model.generation_config.bos_token_id = 1
-        model.generation_config.eos_token_id = 2 
-    elif "mpt" in model_args.model_name_or_path:
-        model.config.pad_token_id = 1
-        model.config.bos_token_id = 0
-        model.config.eos_token_id = 0
-        model.generation_config.pad_token_id = 1
-        model.generation_config.bos_token_id = 0
-        model.generation_config.eos_token_id = 0
-        for name, param in model.named_parameters():
-            # To be compatible with AMD cards
-            if "norm" in name:
-                param.requires_grad = False
-        
     return model
 
 def load_tokenizer(data_args, model_args, training_args, logger):
@@ -423,7 +554,7 @@ def load_tokenizer(data_args, model_args, training_args, logger):
         "cache_dir": model_args.cache_dir,
         "use_fast": model_args.use_fast_tokenizer,
         "revision": model_args.model_revision,
-        "use_auth_token": True if model_args.use_auth_token else None,
+        "token": True if model_args.use_auth_token else None,
         "padding_side": 'left' if not data_args.right_pad else "right",
         "add_eos_token": False,
     }
@@ -431,35 +562,18 @@ def load_tokenizer(data_args, model_args, training_args, logger):
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
     elif model_args.model_name_or_path:
-        if "llama" in model_args.model_name_or_path or "BigTranslate" in model_args.model_name_or_path or "ALMA" in model_args.model_name_or_path:
-            tokenizer = LlamaTokenizer.from_pretrained(
-                model_args.model_name_or_path, 
-                **tokenizer_kwargs, 
-            )
-        else:
-            tokenizer = AutoTokenizer.from_pretrained(
-                model_args.model_name_or_path,
-                **tokenizer_kwargs,
-            )
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.model_name_or_path,
+            **tokenizer_kwargs,
+        )
     else:
         raise ValueError(
             "You are instantiating a new tokenizer from scratch. This is not supported by this script."
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-    if "llama" in model_args.model_name_or_path:
-        tokenizer.pad_token_id = 0
-        tokenizer.bos_token_id = 1
-        tokenizer.eos_token_id = 2
-        tokenizer.eos_token = "</s>"
-        tokenizer.bos_token = "<s>"
-    elif "Mistral" in model_args.model_name_or_path:
-        tokenizer.pad_token_id = 0
-    elif "mpt" in model_args.model_name_or_path:
-        tokenizer.pad_token_id = 1
-        tokenizer.bos_token_id = 0
-        tokenizer.eos_token_id = 0
-        tokenizer.pad_token = "<|padding|>"
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
 
     return tokenizer
 
@@ -471,14 +585,37 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
             source_lang, target_lang = list(ex.keys())
             if f"{source_lang}-{target_lang}" in pairs:
                 prompt = get_prompt(source_lang, target_lang, ex)
+                if model_args.chat_style:
+                    chat_style_prompt = [{"role": "user", "content": prompt}]
+                    chat_style_input = [
+                        {"role": "user", "content": prompt},
+                        {"role": "assistant", "content": ex[target_lang]},
+                        ]
+                    prompt = tokenizer.apply_chat_template(chat_style_prompt, tokenize=False, add_generation_prompt=True)
+                    input_text = tokenizer.apply_chat_template(chat_style_input, tokenize=False, add_generation_prompt=False)
+                else:
+                    input_text = prompt + ex[target_lang]
                 prompts.append(prompt)
-                inputs.append(prompt + ex[target_lang])
+                inputs.append(input_text)
+
             if f"{target_lang}-{source_lang}" in pairs:
                 prompt = get_prompt(target_lang, source_lang, ex)
+                if model_args.chat_style:
+                    chat_style_prompt = [{"role": "user", "content": prompt}]
+                    chat_style_input = [
+                        {"role": "user", "content": prompt},
+                        {"role": "assistant", "content": ex[source_lang]},
+                        ]
+
+                    prompt = tokenizer.apply_chat_template(chat_style_prompt, tokenize=False, add_generation_prompt=True)
+                    input_text = tokenizer.apply_chat_template(chat_style_input, tokenize=False, add_generation_prompt=False)
+                else:
+                    input_text = prompt + ex[source_lang]
                 prompts.append(prompt)
-                inputs.append(prompt + ex[source_lang])
-        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True)
-        check_add_eos(model_inputs, tokenizer)
+                inputs.append(input_text)
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=True if not model_args.chat_style else False)
+        if not model_args.chat_style:
+            check_add_eos(model_inputs, tokenizer)
         labels = copy.deepcopy(model_inputs)
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
@@ -491,6 +628,65 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                     prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
                     first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
                     labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    def tokenize_function_aya(examples):
+        inputs = []
+        prompts = []
+        for inp, tgt in zip(examples["inputs"], examples["targets"]):
+            assert model_args.chat_style, "It must be in a chat style with aya datasets"
+            chat_style_prompt = [{"role": "user", "content": inp}]
+            chat_style_input = [
+                {"role": "user", "content": inp},
+                {"role": "assistant", "content": tgt},
+                ]
+
+            prompt = tokenizer.apply_chat_template(chat_style_prompt, tokenize=False, add_generation_prompt=True)
+            input_text = tokenizer.apply_chat_template(chat_style_input, tokenize=False, add_generation_prompt=False)
+            
+            prompts.append(prompt)
+            inputs.append(input_text)
+
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length + data_args.max_new_tokens - 1, padding=padding, truncation=True, add_special_tokens=False)
+        # check_add_eos(model_inputs, tokenizer)
+        labels = copy.deepcopy(model_inputs)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+            if data_args.ignore_prompt_token_for_loss:
+                for idx, prompt in enumerate(prompts):
+                    prompt = tokenizer(prompt, max_length=data_args.max_source_length, add_special_tokens=False).input_ids
+                    first_non_pad_idx = get_first_non_pad_index(labels["input_ids"][idx])
+                    labels["input_ids"][idx][first_non_pad_idx: first_non_pad_idx + len(prompt)] = [-100] * len(prompt) 
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    def tokenize_function_train_eval_left_pad_enc_dec(examples):
+        inputs = []
+        targets = []
+        for ex in examples["translation"]:
+            source_lang, target_lang = list(ex.keys())
+            if f"{source_lang}-{target_lang}" in pairs:
+                inp = get_prompt(source_lang, target_lang, ex, encoder_decoder_type=model_args.encoder_decoder_type)
+                inputs.append(inp)
+                targets.append(ex[target_lang])
+            if f"{target_lang}-{source_lang}" in pairs:
+                inp = get_prompt(target_lang, source_lang, ex, encoder_decoder_type=model_args.encoder_decoder_type)
+                inputs.append(inp)
+                targets.append(ex[source_lang])
+        model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
+        labels = tokenizer(targets, max_length=data_args.max_new_tokens, padding=padding, truncation=True, add_special_tokens=True)
+        # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
+        # padding in the loss.
+        if padding == "max_length" and data_args.ignore_pad_token_for_loss:
+            labels["input_ids"] = [
+                [(l if l != tokenizer.pad_token_id else -100) for l in label] for label in labels["input_ids"]
+            ]
+
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
@@ -573,8 +769,8 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
         else:
             inputs = {"input_ids": [], "attention_mask": []}
         block_size = data_args.max_source_length + data_args.max_new_tokens
-        for ex in examples["text"]:
-            _input = tokenizer(ex, max_length=4096, add_special_tokens=True)
+        for ex in examples["raw_text"]:
+            _input = tokenizer(ex.strip(), max_length=4096, add_special_tokens=True)
             _input['input_ids'].append(tokenizer.eos_token_id)
             _input['attention_mask'].append(1)
             if data_args.use_prefix_lm:
@@ -596,20 +792,42 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
         model_inputs["labels"] = copy.deepcopy(model_inputs["input_ids"])
         return model_inputs
 
+    def tokenize_function_train_nllb_pretrain(examples):
+        inputs = {"input_ids": [], "attention_mask": []}
+        block_size = data_args.max_source_length + data_args.max_new_tokens
+        for ex in examples["raw_text"]:
+            _input = tokenizer(ex.strip(), max_length=4096, add_special_tokens=True)
+            _input['input_ids'].append(tokenizer.eos_token_id)
+            _input['attention_mask'].append(1)
+            inputs["input_ids"].append(_input['input_ids'])
+            inputs['attention_mask'].append(_input['attention_mask'])
+            
+        concatenated_inputs = {k: list(chain(*inputs[k])) for k in inputs.keys()}
+        total_length = len(concatenated_inputs[list(inputs.keys())[0]])
+        total_length = (total_length // block_size) * block_size
+
+        model_inputs = {
+            k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
+            for k, t in concatenated_inputs.items()
+        }
+        model_inputs["labels"] = copy.deepcopy(model_inputs["input_ids"])
+        return model_inputs
+
     def tokenize_function_test(examples):
         prompts = []
-        targets = []
         feature_name = list(examples.keys())[0]
         source_lang, target_lang = feature_name.split("-")
         for ex in examples[feature_name]:
             if f"{source_lang}-{target_lang}" in pairs:
-                prompt = get_prompt(source_lang, target_lang, ex, shots_eval_dict, data_args.use_target_lang_prompt_eval)
+                prompt = get_prompt(source_lang, target_lang, ex, shots_eval_dict, data_args.use_target_lang_prompt_eval, model_args.encoder_decoder_type)
+                if model_args.chat_style:
+                    prompt = [{"role": "user", "content": prompt}]
+                    prompt = tokenizer.apply_chat_template(prompt, tokenize=False, add_generation_prompt=True)
                 prompts.append(prompt)
-                targets.append(prompt + ex[target_lang])
         original_padding_side = tokenizer.padding_side
         if original_padding_side != "left":
             tokenizer.padding_side = "left"
-        model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True)
+        model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True if not model_args.chat_style else False)
         tokenizer.padding_side = original_padding_side
         if data_args.use_prefix_lm:
             model_inputs["prefix_mask"] = []
@@ -618,12 +836,35 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                 model_inputs["prefix_mask"].append(prefix_mask)
         return model_inputs
 
+    def tokenize_function_aya_test(examples):
+        prompts = []
+        for inp, tgt in zip(examples["inputs"], examples["targets"]):
+            prompt = inp
+            if model_args.chat_style:
+                prompt = [{"role": "user", "content": prompt}]
+                prompt = tokenizer.apply_chat_template(prompt, tokenize=False, add_generation_prompt=True)
+            prompts.append(prompt)
+        original_padding_side = tokenizer.padding_side
+        if original_padding_side != "left":
+            tokenizer.padding_side = "left"
+        model_inputs = tokenizer(prompts, max_length=data_args.max_source_length, padding=padding, truncation=True, add_special_tokens=True if not model_args.chat_style else False)
+        tokenizer.padding_side = original_padding_side
+        return model_inputs
     
     # Preprocessing the datasets.
     if data_args.mmt_data_path or data_args.mono_data_path:
         column_names_mmt = ["translation"]
     if data_args.oscar_data_path:
-        column_name_oscar = ["id", "meta", "text"]
+        if "oscar" in data_args.oscar_data_path:
+            column_names_oscar = ["id", "meta", "text", "raw_text"]
+        elif data_args.oscar_data_path == "allenai/c4":
+            column_names_oscar = ["text", "timestamp", "url", "raw_text"]
+        elif data_args.oscar_data_path == "cc100":
+            column_names_oscar = ["id", "text", "raw_text"]
+    if data_args.aya_datasets:
+        column_names_aya = ["inputs", "targets", "language", "language_code", "annotation_type", "user_id"]
+    if data_args.nllb_pretrain_data_path:
+        column_names_nllb = ["raw_text"]
 
     # since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
     tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
@@ -631,11 +872,13 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
 
     train_datasets, eval_datasets, test_datasets = None, None, None
     mmt_train_eval_tok_func = tokenize_function_train_eval_right_pad if data_args.right_pad else tokenize_function_train_eval_left_pad
+    if model_args.encoder_decoder_type:
+        mmt_train_eval_tok_func = tokenize_function_train_eval_left_pad_enc_dec
     
     if training_args.do_train:
         processed_datasets = []
         if data_args.mmt_data_path:
-            for lg_pair, sub_raw_data in train_raw_data.items():
+            for lg_pair, sub_raw_data in train_raw_data["mmt"].items():
                 train_dataset = sub_raw_data["train"]
                 if data_args.max_train_samples is not None:
                     max_train_samples = min(len(train_dataset), data_args.max_train_samples)
@@ -647,7 +890,6 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                             batched=True,
                             num_proc=data_args.preprocessing_num_workers,
                             remove_columns=column_names_mmt,
-                            cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}",
                             load_from_cache_file=not data_args.overwrite_cache,
                             desc="Running tokenizer on MMT train dataset",
                         )
@@ -659,8 +901,26 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                         )    
                 processed_datasets.append(train_dataset)
 
+        if data_args.aya_datasets:
+            train_dataset = train_raw_data["aya"]
+            if data_args.max_train_samples is not None:
+                max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                train_dataset = train_dataset.select(range(max_train_samples))
+            with training_args.main_process_first(desc="Aya dataset map pre-processing"):
+                assert not data_args.streaming, "Streaming is not supported for Aya datasets now"
+                train_dataset = train_dataset.map(
+                    tokenize_function_aya,
+                    batched=True,
+                    num_proc=data_args.preprocessing_num_workers,
+                    remove_columns=column_names_aya,
+                    load_from_cache_file=not data_args.overwrite_cache,
+                    desc="Running tokenizer on Aya train dataset",
+                )
+            processed_datasets.append(train_dataset)
+        
+
         if data_args.mono_data_path:
-            train_dataset = train_raw_data['train']
+            train_dataset = train_raw_data["mono"]['train']
             if data_args.max_train_samples is not None:
                 max_train_samples = min(len(train_dataset), data_args.max_train_samples)
                 train_dataset = train_dataset.select(range(max_train_samples))
@@ -671,7 +931,6 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                         batched=True,
                         num_proc=data_args.preprocessing_num_workers,
                         remove_columns=column_names_mmt,
-                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-{data_args.mono_data_path.split('/')[-1]}",
                         load_from_cache_file=not data_args.overwrite_cache,
                         desc="Running tokenizer on monolingual train dataset",
                     )
@@ -682,18 +941,30 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                         remove_columns=column_names_mmt,
                     )
             processed_datasets.append(train_dataset)
-        if data_args.oscar_data_path:
-            train_dataset = train_raw_data
+            
+        if "oscar" in train_raw_data:
+            train_dataset = train_raw_data["oscar"]
             with training_args.main_process_first(desc="train dataset map pre-processing"):
                 train_dataset = train_dataset.map(
                     tokenize_function_train_oscar_mono,
                     batched=True,
-                    remove_columns=column_name_oscar,
+                    remove_columns=column_names_oscar,
                 )
             processed_datasets.append(train_dataset)
+
+        if "nllb_pretrain" in train_raw_data:
+            train_dataset = train_raw_data["nllb_pretrain"]
+            with training_args.main_process_first(desc="NLLB Pre-train dataset map pre-processing"):
+                train_dataset = train_dataset.map(
+                    tokenize_function_train_nllb_pretrain,
+                    batched=True,
+                    remove_columns=column_names_nllb,
+                )
+            processed_datasets.append(train_dataset)
+             
         train_datasets = concatenate_datasets(processed_datasets)
         train_datasets = train_datasets.shuffle(seed=training_args.seed)
-        
+
     if training_args.do_eval:
         processed_datasets = []
         for lg_pair, sub_raw_data in valid_raw_data.items():
@@ -707,7 +978,6 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
                     batched=True,
                     num_proc=data_args.preprocessing_num_workers,
                     remove_columns=column_names_mmt,
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-valid-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}",
                     load_from_cache_file=not data_args.overwrite_cache,
                     desc="Running tokenizer valid dataset",
                 )
@@ -716,26 +986,44 @@ def get_preprocessed_data(train_raw_data, valid_raw_data, test_raw_data, pairs, 
         eval_datasets = eval_datasets.shuffle(seed=training_args.seed)
 
     if training_args.do_predict:
-        test_datasets = {}
-        for lg_pair, sub_raw_data in test_raw_data.items():
-            test_dataset = sub_raw_data["test"]
-            if data_args.max_test_samples is not None:
-                max_test_samples = min(len(test_dataset), data_args.max_test_samples)
-                test_dataset = test_dataset.select(range(max_test_samples))
-            with training_args.main_process_first(desc="test dataset map pre-processing"):
-                test_dataset = test_dataset.map(
-                    tokenize_function_test,
-                    batched=True,
-                    num_proc=data_args.preprocessing_num_workers,
-                    remove_columns=[lg_pair],
-                    cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-test-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}",
-                    load_from_cache_file=not data_args.overwrite_cache,
-                    desc="Running tokenizer test dataset",
-                )
-            test_datasets[lg_pair] = test_dataset
+        test_datasets = {"mmt": {}, "aya": {}}
+        if data_args.mmt_data_path:
+            for lg_pair, sub_raw_data in test_raw_data["mmt"].items():
+                test_dataset = sub_raw_data["test"]
+                if data_args.max_test_samples is not None:
+                    max_test_samples = min(len(test_dataset), data_args.max_test_samples)
+                    test_dataset = test_dataset.select(range(max_test_samples))
+                with training_args.main_process_first(desc="test dataset map pre-processing"):
+                    test_dataset = test_dataset.map(
+                        tokenize_function_test,
+                        batched=True,
+                        num_proc=data_args.preprocessing_num_workers,
+                        remove_columns=[lg_pair],
+                        load_from_cache_file=not data_args.overwrite_cache,
+                        desc="Running tokenizer test dataset",
+                    )
+                test_datasets["mmt"][lg_pair] = test_dataset
+        if data_args.aya_datasets:
+            for lg in test_raw_data["aya"].keys():
+                test_dataset = test_raw_data["aya"][lg]
+                if data_args.max_test_samples is not None:
+                    max_test_samples = min(len(test_dataset), data_args.max_test_samples)
+                    test_dataset = test_dataset.select(range(max_test_samples))
+                with training_args.main_process_first(desc="test dataset map pre-processing"):
+                    test_dataset = test_dataset.map(
+                        tokenize_function_aya_test,
+                        batched=True,
+                        num_proc=data_args.preprocessing_num_workers,
+                        remove_columns=column_names_aya,
+                        load_from_cache_file=not data_args.overwrite_cache,
+                        desc="Running tokenizer Aya test dataset",
+                    )
+                test_datasets["aya"][lg] = test_dataset
+        
     return train_datasets, eval_datasets, test_datasets
 
 def preprocess_cpo_data(train_raw_data, valid_raw_data, test_raw_data, pairs, tokenizer, shots_eval_dict, data_args, training_args, model_args):
+
     def get_chosen_reject(example, target_lang):
         sys1_score_key = f"gpt4_{target_lang}_{data_args.cpo_scorer}"
         sys2_score_key = f"alma_{target_lang}_{data_args.cpo_scorer}"
@@ -745,8 +1033,6 @@ def preprocess_cpo_data(train_raw_data, valid_raw_data, test_raw_data, pairs, to
         sys2_output_key = f"alma_{target_lang}"
         ref_output_key = target_lang
 
-        # sys_key = "sys_" + target_lang
-        # gold_key = target_lang
 
         # Human eval
         if "Delta" in example and example["Delta"] != 0:
@@ -790,7 +1076,10 @@ def preprocess_cpo_data(train_raw_data, valid_raw_data, test_raw_data, pairs, to
             source_lang, target_lang = ex["language_pair"].split("-")
             if f"{source_lang}-{target_lang}" in pairs:
                 prompt = get_prompt(source_lang, target_lang, ex)
-                prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True).input_ids
+                if model_args.chat_style:
+                    chat_style_prompt = [{"role": "user", "content": prompt}]
+                    prompt = tokenizer.apply_chat_template(chat_style_prompt, tokenize=False, add_generation_prompt=True)
+                prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True if not model_args.chat_style else False).input_ids
                 if meet_requirements(prompt_tok, ex, target_lang):
                     new_examples["prompt"].append(prompt)
                     chosen, rejected = get_chosen_reject(ex, target_lang)
@@ -798,43 +1087,81 @@ def preprocess_cpo_data(train_raw_data, valid_raw_data, test_raw_data, pairs, to
                     new_examples["rejected"].append(rejected)
             if f"{target_lang}-{source_lang}" in pairs:
                 prompt = get_prompt(target_lang, source_lang, ex)
-                prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True).input_ids
+                if model_args.chat_style:
+                    chat_style_prompt = [{"role": "user", "content": prompt}]
+                    prompt = tokenizer.apply_chat_template(chat_style_prompt, tokenize=False, add_generation_prompt=True)
+                prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True if not model_args.chat_style else False).input_ids
                 if meet_requirements(prompt_tok, ex, source_lang):
                     new_examples["prompt"].append(prompt)
                     chosen, rejected = get_chosen_reject(ex, source_lang)
                     new_examples["chosen"].append(chosen)
                     new_examples["rejected"].append(rejected)
         return new_examples
-    
+
+    def aya_cpo_function(examples):
+        new_examples = {
+            "prompt": [],
+            "chosen": [],
+            "rejected": [],
+        }
+        for prompt, chosen, rejected in zip(examples["prompt"], examples["chosen"], examples["rejected"]):
+            if model_args.chat_style:
+                chat_style_prompt = [{"role": "user", "content": prompt}]
+                prompt = tokenizer.apply_chat_template(chat_style_prompt, tokenize=False, add_generation_prompt=True)
+            prompt_tok = tokenizer(prompt, max_length=data_args.max_source_length, padding=True, truncation=True, add_special_tokens=True if not model_args.chat_style else False).input_ids
+            if len(prompt_tok) < data_args.max_source_length:
+                new_examples["prompt"].append(prompt)
+                new_examples["chosen"].append(chosen)
+                new_examples["rejected"].append(rejected)
+        return new_examples
+
     # Preprocessing the datasets.
     train_datasets, eval_datasets, test_datasets = None, None, None
     if training_args.do_train:
         processed_datasets = []
-        for lg_pair, sub_raw_data in train_raw_data.items():
-            train_dataset = sub_raw_data["train"]
-            if data_args.max_train_samples is not None:
-                max_train_samples = min(len(train_dataset), data_args.max_train_samples)
-                train_dataset = train_dataset.select(range(max_train_samples))
-            with training_args.main_process_first(desc="CPO train dataset map pre-processing"):
-                if not data_args.streaming:
+        if data_args.cpo_data_path:
+            for lg_pair, sub_raw_data in train_raw_data["mmt"].items():
+                train_dataset = sub_raw_data["train"]
+                if data_args.max_train_samples is not None:
+                    max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                    train_dataset = train_dataset.select(range(max_train_samples))
+                with training_args.main_process_first(desc="CPO train dataset map pre-processing"):
+                    if not data_args.streaming:
+                        train_dataset = train_dataset.map(
+                            cpo_prompt_function,
+                            batched=True,
+                            batch_size=1,
+                            num_proc=data_args.preprocessing_num_workers,
+                            remove_columns=["translation"],
+                            load_from_cache_file=not data_args.overwrite_cache,
+                            desc="Running CPO preprocessing",
+                        )
+                    else:
+                        train_dataset = train_dataset.map(
+                            cpo_prompt_function,
+                            batched=True,
+                            batch_size=1,
+                            remove_columns=["translation"],
+                        )    
+                processed_datasets.append(train_dataset)
+        
+        if data_args.aya_datasets:
+            for lg in train_raw_data["aya"].keys():
+                train_dataset = train_raw_data["aya"][lg]["train"]
+                if data_args.max_train_samples is not None:
+                    max_train_samples = min(len(train_dataset), data_args.max_train_samples)
+                    train_dataset = train_dataset.select(range(max_train_samples))
+                with training_args.main_process_first(desc="Aya CPO dataset map pre-processing"):
                     train_dataset = train_dataset.map(
-                        cpo_prompt_function,
+                        aya_cpo_function,
                         batched=True,
                         batch_size=1,
                         num_proc=data_args.preprocessing_num_workers,
-                        remove_columns=["translation"],
-                        cache_file_name=f"{os.environ['HF_DATASETS_CACHE']}/{model_args.model_name_or_path.split('/')[-1]}-train-mmt-{lg_pair}-{data_args.language_pairs}-{data_args.suffix}-CPO",
                         load_from_cache_file=not data_args.overwrite_cache,
-                        desc="Running CPO preprocessing",
+                        desc="Running tokenizer on Aya CPO train dataset",
                     )
-                else:
-                    train_dataset = train_dataset.map(
-                        cpo_prompt_function,
-                        batched=True,
-                        batch_size=1,
-                        remove_columns=["translation"],
-                    )    
-            processed_datasets.append(train_dataset)
+                processed_datasets.append(train_dataset)
+            
         train_datasets = concatenate_datasets(processed_datasets)
         train_datasets = train_datasets.shuffle(seed=training_args.seed)        
 
