@@ -186,7 +186,7 @@ bash install_alma.sh
 ### Evaluation on X-ALMA
 This is a quick start to evaluate our X-ALMA model. To produce translation outputs for FLORES-200 in both en→cs and cs→en directions, (If you want to evaluate WMT'23 instead, simply pass `--override_test_data_path haoranxu/WMT23-Test`.), run the following command. **Note that You don't need enable `--chat_style` for ALMA and ALMA-R. This is only for X-ALMA**
 ```
-accelerate launch --config_file configs/deepspeed_eval_config_zero3_bf16.yaml \
+accelerate launch --config_file configs/deepspeed_eval_config_bf16.yaml \
     run_llmmt.py \
     --model_name_or_path haoranxu/X-ALMA-13B-Group5 \
     --do_predict \
