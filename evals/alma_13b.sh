@@ -4,7 +4,7 @@ TEST_PAIRS=${2:-"de-en,cs-en,is-en,zh-en,ru-en,en-de,en-cs,en-is,en-zh,en-ru"}
 port=$(( RANDOM % (50000 - 30000 + 1 ) + 30000 ))
 
 ## Generation
-accelerate launch --main_process_port ${port} --config_file configs/deepspeed_eval_config_zero3_bf16.yaml \
+accelerate launch --main_process_port ${port} --config_file configs/deepspeed_eval_config_bf16.yaml\
     run_llmmt.py \
     --model_name_or_path haoranxu/ALMA-13B \
     --do_predict \
@@ -23,7 +23,7 @@ accelerate launch --main_process_port ${port} --config_file configs/deepspeed_ev
     --overwrite_output_dir \
 
 if [[ ${TEST_PAIRS} == *zh-en* ]]; then
-    accelerate launch --main_process_port ${port} --config_file configs/deepspeed_eval_config_zero3_bf16.yaml \
+    accelerate launch --main_process_port ${port} --config_file configs/deepspeed_eval_config_bf16.yaml \
         run_llmmt.py \
         --model_name_or_path haoranxu/ALMA-13B \
         --do_predict \

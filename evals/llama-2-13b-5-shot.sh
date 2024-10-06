@@ -4,7 +4,7 @@ TEST_PAIRS=${2:-"de-en,cs-en,is-en,zh-en,ru-en,en-de,en-cs,en-is,en-zh,en-ru"}
 # random port between 30000 and 50000
 port=$(( RANDOM % (50000 - 30000 + 1 ) + 30000 ))
 
-accelerate launch --main_process_port ${port} --config_file configs/deepspeed_eval_config_zero3_bf16.yaml \
+accelerate launch --main_process_port ${port} --config_file configs/deepspeed_eval_config_bf16.yaml \
     run_llmmt.py \
     --model_name_or_path meta-llama/Llama-2-13b-hf \
     --model_revision 9474c6d222f45e7eb328c0f6b55501e7da67c9c3 \
