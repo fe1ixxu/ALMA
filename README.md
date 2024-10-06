@@ -27,12 +27,12 @@ ALMA has three generations: ALMA (1st), ALMA-R (2nd), and **X-ALMA(3rd NEW!)**.
 
 **[X-ALMA] (NEW!) extends ALMA(-R) from 6 languages to 50 languages and ensures top-tier performance across 50 diverse languages, regardless of their resource levels. This is achieved by plug-and-play language-specific module architecture and a carefully designed 5-step training recipe with novel *Adaptive-Rejection Preference Optimization* methods.** 
 
-[Old ALMA Repo]
+*Old ALMA Repo:*
 - The original **ALMA** repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 - The original **ALMA-R** repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/ac120eb44c609ad9a386d617172d40432c2c0df6).
 
 # News 🌟
-⭐ Oct. 3 2024 **X-ALMA** is out!
+⭐ Oct. 6 2024 **X-ALMA** is out!
 ⭐ Jun. 20 2024 We want to give a shout out to [SimPO](https://arxiv.org/pdf/2405.14734), which shares a similar reference-free preference learning framework with CPO but in a more stable manner due to its special length normalization and target reward margin. The most exciting thing is that CPO and SimPO can potentially be used together! Learn more about [CPO-SimPO](https://github.com/fe1ixxu/CPO_SIMPO)!
 
 ⭐ May.1 CPO paper has been accepted at **ICML 2024**!
@@ -64,29 +64,22 @@ ALMA has three generations: ALMA (1st), ALMA-R (2nd), and **X-ALMA(3rd NEW!)**.
 
 # Download ALMA Models and Dataset 🚀
 
-We release seven translation models presented in the paper:
-- ALMA-7B (1st gen)
-- ALMA-7B-LoRA (1st gen)
-- ALMA-7B-R (2nd gen): Further LoRA fine-tuning upon ALMA-7B-LoRA with contrastive preference optimization.
-- ALMA-13B (1st gen)
-- ALMA-13B-LoRA (1st gen)
-- ALMA-13B-R (2nd gen): Further LoRA fine-tuning upon ALMA-13B-LoRA with contrastive preference optimization.
-- **X-ALMA (NEW, 3rd gen)**: Extending ALMA from 6 languages to 50 diverse languages, top-performance for all languages!
-  
-*We have also provided the WMT'22 and WMT'23 translation outputs from ALMA-13B-LoRA and ALMA-13B-R in the `outputs` directory. These outputs also includes our outputs of baselines and can be directly accessed and used for subsequent evaluations.*
+We release seven translation models for ALMA series:
 
 Model checkpoints are released at huggingface:
 |     Models    | Base Model Link | LoRA Link |
 |:-------------:|:---------------:|:---------:|
-|    ALMA-7B    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
-|  ALMA-7B-LoRA |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-7B-Pretrain-LoRA)     |
-|  ALMA-7B-R |        [haoranxu/ALMA-7B-R (LoRA merged)](https://huggingface.co/haoranxu/ALMA-7B-R)        |     -    |
-|    ALMA-13B   |        [haoranxu/ALMA-13B](https://huggingface.co/haoranxu/ALMA-13B)        |     -     |
+|    ALMA-7B (1st gen)    |        [haoranxu/ALMA-7B](https://huggingface.co/haoranxu/ALMA-7B)        |     -     |
+|  ALMA-7B-LoRA (1st gen) |        [haoranxu/ALMA-7B-Pretrain](https://huggingface.co/haoranxu/ALMA-7B-Pretrain)        |     [haoranxu/ALMA-7B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-7B-Pretrain-LoRA)     |
+|  ALMA-7B-R (2nd gen) |        [haoranxu/ALMA-7B-R (LoRA merged)](https://huggingface.co/haoranxu/ALMA-7B-R)        |     -    |
+|    ALMA-13B-LoRA (1st gen)   |        [haoranxu/ALMA-13B](https://huggingface.co/haoranxu/ALMA-13B)        |     -     |
 | ALMA-13B-LoRA |        [haoranxu/ALMA-13B-Pretrain](https://huggingface.co/haoranxu/ALMA-13B-Pretrain)        |     [haoranxu/ALMA-13B-Pretrain-LoRA](https://huggingface.co/haoranxu/ALMA-13B-Pretrain-LoRA)     |
-| ALMA-13B-R |        [haoranxu/ALMA-13B-R (LoRA merged)](https://huggingface.co/haoranxu/ALMA-13B-R)        |    -   |
-| **X-ALMA models (New!)** |        [X-ALMA Models](https://huggingface.co/collections/haoranxu/x-alma-66fde464ef90be465920abaa)        |    -   |
+| ALMA-13B-R (2nd gen) |        [haoranxu/ALMA-13B-R (LoRA merged)](https://huggingface.co/haoranxu/ALMA-13B-R)        |    -   |
+|  **X-ALMA (NEW, 3rd gen)** |        [X-ALMA Models](https://huggingface.co/collections/haoranxu/x-alma-66fde464ef90be465920abaa)        |    -   |
 
 **Note that `ALMA-7B-Pretrain` and `ALMA-13B-Pretrain` are NOT translation models. They only experience stage 1 monolingual fine-tuning (20B tokens for the 7B model and 12B tokens for the 13B model), and should be utilized in conjunction with their LoRA models.** 
+
+*We have also provided the WMT'22 and WMT'23 translation outputs from ALMA-13B-LoRA and ALMA-13B-R in the `outputs` directory. These outputs also includes our outputs of baselines and can be directly accessed and used for subsequent evaluations.*
 
 Datasets used by ALMA and ALMA-R are also released at huggingface now (NEW!)
 |     Datasets    | Train / Validation| Test |
@@ -185,6 +178,7 @@ bash install_alma.sh
 # Evaluation 💻
 ### Evaluation on X-ALMA
 This is a quick start to evaluate our X-ALMA model. To produce translation outputs for FLORES-200 in both en→cs and cs→en directions, (If you want to evaluate WMT'23 instead, simply pass `--override_test_data_path haoranxu/WMT23-Test`.), run the following command. **Note that You don't need enable `--chat_style` for ALMA and ALMA-R. This is only for X-ALMA**
+
 ```
 accelerate launch --config_file configs/deepspeed_eval_config_bf16.yaml \
     run_llmmt.py \
