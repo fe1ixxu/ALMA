@@ -2,42 +2,24 @@
 # coding=utf-8
 
 import logging
-import copy
-import math
 import os
 import sys
 import json
-from dataclasses import dataclass, field
-from itertools import chain
-from typing import Optional
-import numpy as np
 
 import datasets
-import evaluate
 import torch
 from datasets import load_dataset
 
 import transformers
 from transformers import (
     HfArgumentParser,
-    Seq2SeqTrainingArguments,
-    default_data_collator,
     set_seed,
 )
-from transformers.utils import send_example_telemetry
-from collections import defaultdict
-from datasets import  interleave_datasets
-from utils.trainer_llmmt import LlmmtTrainer
-from utils.utils import LANG_TABLE, load_mmt_dataset, preprocess_cpo_data, clean_outputstring, load_tokenizer, load_model, SavePeftModelCallback, get_key_suffix
+from utils.utils import preprocess_cpo_data, load_tokenizer, load_model, SavePeftModelCallback
 from utils.arguments import ModelArguments, DataTrainingArguments
 from trl import CPOTrainer, CPOConfig
 
 logger = logging.getLogger(__name__)
-
-from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
-
-from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
 
 def main():
     # See all possible arguments in src/transformers/training_args.py
@@ -79,16 +61,16 @@ def main():
 
     # Get the datasets
     pairs = set(data_args.language_pairs.split(","))
-    train_raw_data, valid_raw_data, test_raw_data = None, None, None
+    train_raw_data, valid_raw_data, test_raw_data = {}, None, None
     seen = set()
     ## load cpo dataset
-    train_raw_data = {}
+    train_raw_data["mmt"] = {} 
     for pair in pairs:
         src_lang, tgt_lang = pair.split("-")
         first_lang = src_lang if src_lang != "en" else tgt_lang
         second_lang = "en"
         if (first_lang, second_lang) not in seen and training_args.do_train:
-            train_raw_data[f"{first_lang}-{second_lang}"] = load_dataset(
+            train_raw_data["mmt"][f"{first_lang}-{second_lang}"] = load_dataset(
                 data_args.cpo_data_path,
                 f"{first_lang}-{second_lang}",
                 cache_dir=model_args.cache_dir,

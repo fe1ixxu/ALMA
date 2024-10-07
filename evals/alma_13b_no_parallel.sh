@@ -1,9 +1,5 @@
 OUTPUT_DIR=${1:-"./outputs-alma-13b-full-ft/"}
 TEST_PAIRS=${2:-"de-en,cs-en,is-en,zh-en,ru-en,en-de,en-cs,en-is,en-zh,en-ru"}
-export HF_DATASETS_CACHE=".cache/huggingface_cache/datasets"
-export TRANSFORMERS_CACHE=".cache/models/"
-# random port between 30000 and 50000
-port=$(( RANDOM % (50000 - 30000 + 1 ) + 30000 ))
 
 ## Generation
 python \
