@@ -11,6 +11,7 @@
 <a href="LICENSE" alt="MIT License"><img src="https://img.shields.io/badge/license-MIT-FAD689.svg" /></a>
 <a href="https://arxiv.org/abs/2309.11674" alt="ALMA paper"><img src="https://img.shields.io/badge/ALMA-Paper-D9AB42" /></a>
 <a href="https://arxiv.org/abs/2401.08417" alt="ALMA-R paper"><img src="https://img.shields.io/badge/ALMA--R-Paper-F6C555" /></a>
+<a href="https://arxiv.org/pdf/2410.03115" alt="X-ALMA paper"><img src="https://img.shields.io/badge/X--ALMA-Paper-F3B425" /></a>
 <!-- <a href="https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/"><img alt="Summary Link" src="https://img.shields.io/badge/summary-link-F6C555" /></a> -->
 <a href="https://www.clsp.jhu.edu/" alt="jhu"><img src="https://img.shields.io/badge/Johns_Hopkins_University-BEC23F" /></a>
 <a href="https://www.microsoft.com/en-us/research/" alt="MSlogo"><img src="https://img.shields.io/badge/Microsoft-B1B479?logo=microsoft" /></a>
@@ -25,14 +26,15 @@ ALMA has three generations: ALMA (1st), ALMA-R (2nd), and **X-ALMA(3rd NEW!)**.
 
 **[ALMA-R](https://arxiv.org/pdf/2401.08417v2.pdf)** builds upon ALMA models, with further LoRA fine-tuning with our proposed **Contrastive Preference Optimization (CPO)** as opposed to the Supervised Fine-tuning used in ALMA. CPO fine-tuning requires our [triplet preference data](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference) for preference learning. ALMA-R now can matches or even exceeds GPT-4 or WMT winners!
 
-**[X-ALMA] (NEW!) extends ALMA(-R) from 6 languages to 50 languages and ensures top-tier performance across 50 diverse languages, regardless of their resource levels. This is achieved by plug-and-play language-specific module architecture and a carefully designed 5-step training recipe with novel *Adaptive-Rejection Preference Optimization* methods.** 
+**[X-ALMA](https://arxiv.org/pdf/2410.03115) (NEW!) extends ALMA(-R) from 6 languages to 50 languages and ensures top-tier performance across 50 diverse languages, regardless of their resource levels. This is achieved by plug-and-play language-specific module architecture and a carefully designed 5-step training recipe with novel *Adaptive-Rejection Preference Optimization* methods.** 
 
 *Old ALMA Repo:*
 - The original **ALMA** repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/a3cc7877752779346312bb07798172eadc83d692).
 - The original **ALMA-R** repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/ac120eb44c609ad9a386d617172d40432c2c0df6).
 
 # News 🌟
-⭐ Oct. 6 2024 **X-ALMA** is out!
+⭐ Oct. 6 2024 **X-ALMA** is out! Please find the [paper here](https://arxiv.org/pdf/2410.03115) and [models & datasets here](https://huggingface.co/collections/haoranxu/x-alma-66fde464ef90be465920abaa).
+
 ⭐ Jun. 20 2024 We want to give a shout out to [SimPO](https://arxiv.org/pdf/2405.14734), which shares a similar reference-free preference learning framework with CPO but in a more stable manner due to its special length normalization and target reward margin. The most exciting thing is that CPO and SimPO can potentially be used together! Learn more about [CPO-SimPO](https://github.com/fe1ixxu/CPO_SIMPO)!
 
 ⭐ May.1 CPO paper has been accepted at **ICML 2024**!
@@ -86,7 +88,7 @@ Datasets used by ALMA and ALMA-R are also released at huggingface now (NEW!)
 |:-------------:|:---------------:|:---------:|
 |   ALMA Human-Written Parallel Data    |        [Parallel train and validation](https://huggingface.co/datasets/haoranxu/ALMA-Human-Parallel)        |     [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test)    |
 |  ALMA-R Triplet Preference Data |        [Triplet Preference Data](https://huggingface.co/datasets/haoranxu/ALMA-R-Preference)        |   [WMT'22](https://huggingface.co/datasets/haoranxu/WMT22-Test) and [WMT'23](https://huggingface.co/datasets/haoranxu/WMT23-Test)   |
-|  X-ALMA Data |   50-language   [parallel data](https://huggingface.co/datasets/haoranxu/X-ALMA-Parallel-Data) and [preference data](https://huggingface.co/datasets/haoranxu/X-ALMA-Preference)        |   [WMT'23](https://huggingface.co/datasets/haoranxu/WMT23-Test) and [FLORES-200](https://huggingface.co/datasets/haoranxu/X-ALMA-Parallel-Data)  |
+|  **X-ALMA Data** |   50-language   [parallel data](https://huggingface.co/datasets/haoranxu/X-ALMA-Parallel-Data) and [preference data](https://huggingface.co/datasets/haoranxu/X-ALMA-Preference)        |   [WMT'23](https://huggingface.co/datasets/haoranxu/WMT23-Test) and [FLORES-200](https://huggingface.co/datasets/haoranxu/X-ALMA-Parallel-Data)  |
 
 
 # A Quick Start
@@ -255,24 +257,37 @@ Please find the reasons for interleave probability selection for stage 1 in Appe
 # Reference
 Please find more details for ALMA models in our [paper](https://arxiv.org/abs/2309.11674) or the [summary](https://notes.aimodels.fyi/alma-a-new-training-method-that-boosts-translation-performance-for-large-language-models/) of the paper.
 ```
-@misc{xu2023paradigm,
-      title={A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models}, 
-      author={Haoran Xu and Young Jin Kim and Amr Sharaf and Hany Hassan Awadalla},
-      year={2023},
-      eprint={2309.11674},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{
+    xu2024a,
+    title={A Paradigm Shift in Machine Translation: Boosting Translation Performance of Large Language Models},
+    author={Haoran Xu and Young Jin Kim and Amr Sharaf and Hany Hassan Awadalla},
+    booktitle={The Twelfth International Conference on Learning Representations},
+    year={2024},
+    url={https://openreview.net/forum?id=farT6XXntP}
 }
 ```
 
 Please also find more detailed information for the ALMA-R model with Contrastive Preference Optimization in the [paper](https://arxiv.org/pdf/2401.08417v2.pdf).
 ```
-@misc{xu2024contrastive,
-      title={Contrastive Preference Optimization: Pushing the Boundaries of LLM Performance in Machine Translation}, 
-      author={Haoran Xu and Amr Sharaf and Yunmo Chen and Weiting Tan and Lingfeng Shen and Benjamin Van Durme and Kenton Murray and Young Jin Kim},
+@inproceedings{
+    xu2024contrastive,
+    title={Contrastive Preference Optimization: Pushing the Boundaries of {LLM} Performance in Machine Translation},
+    author={Haoran Xu and Amr Sharaf and Yunmo Chen and Weiting Tan and Lingfeng Shen and Benjamin Van Durme and Kenton Murray and Young Jin Kim},
+    booktitle={Forty-first International Conference on Machine Learning},
+    year={2024},
+    url={https://openreview.net/forum?id=51iwkioZpn}
+}
+```
+
+Please find details about X-ALMA in the latest [paper](https://arxiv.org/pdf/2410.03115)
+```
+@misc{xu2024xalmaplugplay,
+      title={X-ALMA: Plug & Play Modules and Adaptive Rejection for Quality Translation at Scale}, 
+      author={Haoran Xu and Kenton Murray and Philipp Koehn and Hieu Hoang and Akiko Eriguchi and Huda Khayrallah},
       year={2024},
-      eprint={2401.08417},
+      eprint={2410.03115},
       archivePrefix={arXiv},
-      primaryClass={cs.CL}
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2410.03115}, 
 }
 ```
