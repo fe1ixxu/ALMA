@@ -33,6 +33,8 @@ ALMA has three generations: ALMA (1st), ALMA-R (2nd), and **X-ALMA(3rd NEW!)**.
 - The original **ALMA-R** repository can be found [here](https://github.com/fe1ixxu/ALMA/tree/ac120eb44c609ad9a386d617172d40432c2c0df6).
 
 # News 🌟
+⭐ Jan. 22 2025 **X-ALMA** has been accepted at **ICLR 2025**!
+
 ⭐ Oct. 6 2024 **X-ALMA** is out! Please find the [paper here](https://arxiv.org/pdf/2410.03115) and [models & datasets here](https://huggingface.co/collections/haoranxu/x-alma-66fde464ef90be465920abaa).
 
 ⭐ Jun. 20 2024 We want to give a shout out to [SimPO](https://arxiv.org/pdf/2405.14734), which shares a similar reference-free preference learning framework with CPO but in a more stable manner due to its special length normalization and target reward margin. The most exciting thing is that CPO and SimPO can potentially be used together! Learn more about [CPO-SimPO](https://github.com/fe1ixxu/CPO_SIMPO)!
